@@ -1,0 +1,46 @@
+COD=FLAC
+
+ART=Depeche Mode
+ALB=The Singles 86>98
+YEA=1998
+PUB=Mute
+GEN=Rock
+STY=Alternative Dance, Alternative Pop/Rock, Club/Dance, Dance-Rock, College Rock, Synth Pop
+
+CMT=It took Depeche Mode. ~ Stephen Thomas Erlewine, All Music Guide
+
+MTC01=10
+MAL01=Depeche Mode 1
+
+TRA01=Stripped
+TRA02=A Question of Lust
+TRA03=A Question of Time
+TRA04=Strangelove
+TRA05=Never Let Me Down Again
+TRA06=Behind the Wheel
+TRA07=Personal Jesus
+TRA08=Enjoy the Silence
+TRA09=Policy of Truth
+TRA10=World in My Eyes
+
+MAL02=Depeche Mode 2
+MTC02=11
+
+TRA11=I Feel You
+TRA12=Walking in My Shoes
+TRA13=Condemnation
+TRA14=In Your Room
+TRA15=Barrel of a Gun
+TRA16=It's No Good
+TRA17=Home
+TRA18=Useless
+TRA19=Only When I Lose Myself
+TRA20=Little 15
+TRA21=Everything Counts (Live)
+
+MAL03=Depeche Mode 3
+
+TRA22=I Feel You
+TRA23=Walking in My Shoes
+
+CMP=Gore
