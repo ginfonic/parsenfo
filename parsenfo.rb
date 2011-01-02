@@ -1,18 +1,148 @@
 #!/usr/bin/ruby -w
 #: Title		: parsenfo (Parse NFO)
-#: Date			: 2010-06-10
+#: Date			: 2010-06-21
 #: Author		: "Eugene Fokin" <ginfonic@gmail.com>
-#: Version		: 2.0
+#: Version		: 3.0
 #: Description	: Parses text file with tagged CD record info
-#: Description	: into records ready to be stored in SQL database.
+#: Description	: into records ready to be stored in SQLite3 database.
 #: Arguments	: [output_file_kind] input_file/input_folder [output_file]
 
-#In_out class for parsing arguments, getting & puting strings from/to text file.
-class In_out
-  attr_reader :out_file_kind, :in_files, :out_file
+require "rubygems"
+require "sqlite3"
+
+#SQLite3Query class for creating and inserting records into SQLite3 database.
+class SQLite3Query
+  #Types.
+  Column = Struct.new(:header, :tycon)
+  Table = Struct.new(:header, :constraint, :columns)
+  #Constants.
+  NULL = "NULL"
+  #Column definitions.
+  ID_COLUMN = Column.new("id", "INTEGER PRIMARY KEY AUTOINCREMENT")
+  ALBUM_ARTIST_ID_COLUMN = Column.new("album_artist_id", "INTEGER")
+  ALBUM_TITLE_COLUMN = Column.new("album_title", "TEXT")
+  YEAR_COLUMN = Column.new("year", "TEXT")
+  PUBLISHER_ID_COLUMN = Column.new("publisher_id", "INTEGER")
+  CODEC_ID_COLUMN = Column.new("codec_id", "INTEGER")
+  STYLE_1_ID_COLUMN = Column.new("style_1_id", "INTEGER")
+  STYLE_2_ID_COLUMN = Column.new("style_2_id", "INTEGER")
+  STYLE_3_ID_COLUMN = Column.new("style_3_id", "INTEGER")
+  STYLE_4_ID_COLUMN = Column.new("style_4_id", "INTEGER")
+  STYLE_5_ID_COLUMN = Column.new("style_5_id", "INTEGER")
+  COMMENT_COLUMN = Column.new("comment", "TEXT")
+  DISC_NUMBER_COLUMN = Column.new("disc_number", "TEXT")
+  DISC_TITLE_COLUMN = Column.new("disc_title", "TEXT")
+  ALBUM_ID_COLUMN = Column.new("album_id", "INTEGER")
+  TRACK_NUMBER_COLUMN = Column.new("track_number", "TEXT")
+  TRACK_ARTIST_ID_COLUMN = Column.new("track_artist_id", "INTEGER")
+  TRACK_TITLE_COLUMN = Column.new("track_title", "TEXT")
+  DISC_ID_COLUMN = Column.new("disc_id", "INTEGER")
+  ARTIST_NAME_COLUMN = Column.new("artist_name", "TEXT UNIQUE")
+  PUBLISHER_COLUMN = Column.new("publisher", "TEXT UNIQUE")
+  CODEC_COLUMN = Column.new("codec", "TEXT UNIQUE")
+  STYLE_COLUMN = Column.new("style", "TEXT UNIQUE")
+  #Table definitions.
+  ARTISTS_TABLE = Table.new("artists", nil, [ID_COLUMN, ARTIST_NAME_COLUMN])
+  PUBLISHERS_TABLE = Table.new("publishers", nil, [ID_COLUMN, PUBLISHER_COLUMN])
+  CODECS_TABLE = Table.new("codecs", nil, [ID_COLUMN, CODEC_COLUMN])
+  STYLES_TABLE = Table.new("styles", nil, [ID_COLUMN, STYLE_COLUMN])
+  ALBUMS_TABLE = Table.new("albums", "UNIQUE (#{ALBUM_ARTIST_ID_COLUMN.header}, #{ALBUM_TITLE_COLUMN.header})",
+    [ID_COLUMN, ALBUM_ARTIST_ID_COLUMN, ALBUM_TITLE_COLUMN, YEAR_COLUMN, PUBLISHER_ID_COLUMN, CODEC_ID_COLUMN,
+    STYLE_1_ID_COLUMN, STYLE_2_ID_COLUMN, STYLE_3_ID_COLUMN, STYLE_4_ID_COLUMN, STYLE_5_ID_COLUMN, COMMENT_COLUMN])
+  DISCS_TABLE = Table.new("discs", "UNIQUE (#{DISC_NUMBER_COLUMN.header}, #{ALBUM_ID_COLUMN.header})",
+    [ID_COLUMN, DISC_NUMBER_COLUMN, DISC_TITLE_COLUMN, ALBUM_ID_COLUMN])
+  TRACKS_TABLE = Table.new("tracks", "UNIQUE (#{TRACK_NUMBER_COLUMN.header}, #{DISC_ID_COLUMN.header})",
+    [ID_COLUMN, TRACK_NUMBER_COLUMN, TRACK_ARTIST_ID_COLUMN, TRACK_TITLE_COLUMN, DISC_ID_COLUMN])
+  #Database definition.
+  TABLES = [ARTISTS_TABLE, PUBLISHERS_TABLE, CODECS_TABLE, STYLES_TABLE, ALBUMS_TABLE, DISCS_TABLE, TRACKS_TABLE]
+  #Attributes: link to database and array of hashes of track records.
+  attr_reader :db, :items
+  #Methods.
+  #Initializes attributes and create tables if they not exist.
+  def initialize(db, items)
+    @db, @items = db, items
+    TABLES.each do |table|
+      sql = "CREATE TABLE IF NOT EXISTS #{table.header} ("
+      table.columns.each {|column| sql += "#{column.header} #{column.tycon}, "}
+      sql = table.constraint.nil? ? "#{sql.slice(0, sql.length - 2)})" : "#{sql}#{table.constraint})"
+      @db.execute(sql)
+    end
+  end
+  #Safely quotes string to SQLite3. If nil returns NULL.
+  def quote(string)
+    result = string.nil? ? NULL : "'#{SQLite3::Database.quote(string)}'"
+  end
+  #Inserts raw into table if not exists and returns id. If exists returns id of existing one.
+  #Could have 3 o4 4 arguments. The last 3 - arrays or single items.
+  def insert_if_not_exists(table, check_columns, check_items, insert_items = check_items)
+    #Converts arguments to arrays if they are not.
+    check_columns = [check_columns] if check_columns.class != Array
+    check_items = [check_items] if check_items.class != Array
+    insert_items = [insert_items] if insert_items.class != Array
+    #If no items to add returns nil (quoted to NULL).
+    return nil if insert_items.first.nil?
+    #Checks if row presents in table. If it's true returns id of row.
+    sql = "SELECT id FROM #{table.header} WHERE "
+    check_columns.each_with_index {|check_column, i| sql += "#{check_column.header} = #{quote(check_items[i])} AND "}
+    sql = sql.slice(0, sql.length - 5)
+    result = @db.execute(sql).first
+    #If false inserts row into table and returns id of new row.
+    if result.nil?
+      sql = "INSERT INTO #{table.header} VALUES (#{NULL}, "
+      insert_items.each {|insert_item| sql += "#{quote(insert_item)}, "}
+      sql = "#{sql.slice(0, sql.length - 2)})"
+      @db.execute(sql)
+      result = @db.last_insert_row_id
+    else result = result.first
+    end
+    result.to_s
+  end
+  #For every track records item inserts records into corresponding tables.
+  def insert_records
+    @items.each do |item|
+      #Artists, publishers, codecs and styles tables.
+      album_artist_id = insert_if_not_exists(ARTISTS_TABLE, ARTIST_NAME_COLUMN, item[:album_artist_name])
+      track_artist_id = item[:track_artist_name] == item[:album_artist_name] ?
+        album_artist_id :
+        insert_if_not_exists(ARTISTS_TABLE, ARTIST_NAME_COLUMN, item[:track_artist_name])
+      publisher_id = insert_if_not_exists(PUBLISHERS_TABLE, PUBLISHER_COLUMN, item[:publisher])
+      codec_id = insert_if_not_exists(CODECS_TABLE, CODEC_COLUMN, item[:codec])
+      styles = item[:style].split(", ")
+      style_1_id = insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, styles[0])
+      style_2_id = insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, styles[1])
+      style_3_id = insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, styles[2])
+      style_4_id = insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, styles[3])
+      style_5_id = insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, styles[4])
+      #Albums table.
+      check_columns = [ALBUM_ARTIST_ID_COLUMN, ALBUM_TITLE_COLUMN]
+      check_items = [album_artist_id, item[:album_title]]
+      insert_items = [album_artist_id, item[:album_title], item[:year], publisher_id, codec_id,
+        style_1_id, style_2_id, style_3_id, style_4_id, style_5_id, item[:comment]]
+      album_id = insert_if_not_exists(ALBUMS_TABLE, check_columns, check_items, insert_items)
+      #Discs table.
+      check_columns = [DISC_NUMBER_COLUMN, ALBUM_ID_COLUMN]
+      check_items = [item[:disc_number], album_id]
+      insert_items = [item[:disc_number], item[:disc_title], album_id]
+      disc_id = insert_if_not_exists(DISCS_TABLE, check_columns, check_items, insert_items)
+      #Tracks table.
+      check_columns = [TRACK_NUMBER_COLUMN, DISC_ID_COLUMN]
+      check_items = [item[:track_number], disc_id]
+      insert_items = [item[:track_number], track_artist_id, item[:track_title], disc_id]
+      track_id = insert_if_not_exists(TRACKS_TABLE, check_columns, check_items, insert_items)
+      puts "Album: #{album_id}\tDisc: #{disc_id}\tTrack: #{track_id}"
+    end
+  end
+end
+#InOut class for parsing arguments, getting strings from text file, storing track records of all albums
+#& putting them to CSV or tab delimited text file or to SQLite3 database.
+class InOut
+  IN_FILE_EXT = ".txt"
+  OUT_LOG_FILE_NAME = "parsenfo"
+  LOG_EXT = ".log"
+  attr_reader :out_file_kind, :in_files, :out_file, :out_items
   #Initializes class with kind of output file, input & output files.
   def initialize(out_file_kind, in_file, out_file)
-    #Defines kind of output file: CSV, tab delimited or MySQL (dummy).
+    #Defines kind of output file: CSV, tab delimited or SQLite3.
     case out_file_kind
     when "-c"
       @out_file_kind = :csv
@@ -20,9 +150,9 @@ class In_out
     when "-t"
       @out_file_kind = :tab
       out_file_ext = ".txt"
-    when "-m"
-      @out_file_kind = :mysql
-      out_file_ext = ".sql"
+    when "-l"
+      @out_file_kind = :sqlite3
+      out_file_ext = ".db"
     else
       @out_file_kind = :csv
       out_file_ext = ".csv"
@@ -31,15 +161,14 @@ class In_out
     end
     #Defines input files.
     #Extention of input files.
-    in_file_ext = ".txt"
     #Array of input files.
     @in_files = []
     if in_file.nil?
     #If in_file is folder gets all files from it.
     elsif File.directory?(in_file)
-      @in_files = Dir["#{in_file}/*#{in_file_ext}"]
+      @in_files = Dir["#{in_file}/*#{IN_FILE_EXT}"]
     #If in_file is file, exists and of right kind add it to array.
-    elsif File.exist?(in_file) && File.extname(in_file) == in_file_ext
+    elsif File.exist?(in_file) && File.extname(in_file) == IN_FILE_EXT
       @in_files << in_file
     end
     #Exits with message if no input files.
@@ -50,20 +179,23 @@ class In_out
     #Defines output file.
     #If out_file is not selected defaults it.
     if out_file.nil?
-      @out_file = "#{File.dirname(@in_files[0])}/parsenfo#{out_file_ext}"
+      @out_file = "#{File.dirname(@in_files.first)}/#{OUT_LOG_FILE_NAME}#{out_file_ext}"
     #If out_file have no full path store it in folder with first in_file.
     elsif File.dirname(out_file) == "."
-      @out_file = "#{File.dirname(@in_files[0])}/#{out_file}"
+      @out_file = "#{File.dirname(@in_files.first)}/#{out_file}"
     else
       @out_file = out_file
     end
+    #Array of output items for storing track records of all albums.
+    @out_items = []
   end
-  #Gets strings from each input file to array and raises external block to treat it.
+  #Gets strings from each input file to array and calls external block to treat it.
+  #Result of calling (track records of album) adds to array of output items.
   def get_each
     @in_files.each do |in_file|
       lines = []
       File.foreach(in_file) {|line| lines << line.chomp}
-      yield lines
+      @out_items += yield lines
     end
   end
   #Converts array of track records to array of CSV records.
@@ -83,14 +215,31 @@ class In_out
     end
     lines
   end
+  #Converts array of track records to array of hashes of track records.
+  def to_hashes(items)
+    hashes = []
+    items.each do |item|
+      hashes << {:codec => item[0], :album_artist_name => item[1], :album_title => item[2], :year => item[3],
+        :publisher => item[4], :genre => item[5], :style => item[6], :comment => item[7],
+        :disc_number => item[8], :disc_title => item[9], :track_number => item[10],
+        :track_artist_name => item[11], :track_title => item[12], :composer => item[13]}
+    end
+    hashes
+  end
   #Puts array of track records to output file.
-  def put(items)
-    lines = if @out_file_kind == :tab then to_tab_lines(items)
-    else to_csv_lines(items) end
-    File.open(@out_file, "a") {|fp| fp.puts lines}
+  def put
+    if @out_file_kind == :sqlite3
+      db = SQLite3::Database.new(@out_file)
+      sqlite3_query = SQLite3Query.new(db, to_hashes(@out_items))
+      sqlite3_query.insert_records
+      db.close
+    else
+      lines = if @out_file_kind == :tab then to_tab_lines(@out_items)
+      else to_csv_lines(@out_items) end
+      File.open(@out_file, "a") {|fp| fp.puts lines}
+    end
   end
 end
-
 #Info class for parsing data from input array.
 class Info
   attr_reader :codec, :album_artist_name, :album_title, :year, :publisher, :genre, :style, :comment,
@@ -137,12 +286,14 @@ class Info
     end
   end
 end
-
 #Album class with tree of arrays (Disc, Track structures) for storing data from Info object.
-Disc = Struct.new(:disc_number, :disc_title, :tracks)
-Track = Struct.new(:track_number, :track_artist_name, :track_title, :composer)
 class Album
+  #Types.
+  Disc = Struct.new(:disc_number, :disc_title, :tracks)
+  Track = Struct.new(:track_number, :track_artist_name, :track_title, :composer)
+  #Attributes.
   attr_reader :codec, :album_artist_name, :album_title, :year, :publisher, :genre, :style, :comment, :discs
+  #Methods.
   #Fills tree of arrays with data from Info object.
   def initialize(info)
     @codec, @album_artist_name, @album_title, @year, @publisher, @genre, @style, @comment, @discs =
@@ -172,16 +323,16 @@ class Album
       i += 1
     end
   end
-  #Fills empty fields (disc_title, track_artist_name & composer) by default.
+  #Fills empty records (disc_title, track_artist_name & composer) by default.
   def default
     @discs.each do |disc|
       if disc.disc_title.nil?
-        disc.disc_title = @discs.length > 1 ? @album_title + " CD" + disc.disc_number : @album_title
+        disc.disc_title = @discs.length > 1 ? "#{@album_title} CD#{disc.disc_number}" : @album_title
       end
       disc.tracks.each do |track|
         track.track_artist_name = @album_artist_name if track.track_artist_name.nil?
         if track.composer.nil?
-          if !@discs[0].tracks[0].composer.nil? then track.composer = @discs[0].tracks[0].composer
+          if !@discs.first.tracks.first.composer.nil? then track.composer = @discs.first.tracks.first.composer
           else track.composer = track.track_artist_name end
         end
       end
@@ -193,22 +344,18 @@ class Album
     items = []
     @discs.each do |disc|
       disc.tracks.each do |track|
-        item = [@codec, @album_artist_name, @album_title, @year, @publisher, @genre, @style, @comment]
-        item += [disc.disc_number, disc.disc_title]
-        item += [track.track_number, track.track_artist_name, track.track_title, track.composer]
-        items << item
+        items << [@codec, @album_artist_name, @album_title, @year, @publisher, @genre, @style, @comment,
+          disc.disc_number, disc.disc_title, track.track_number, track.track_artist_name, track.track_title, track.composer]
       end
     end
     items
   end
 end
 #Creates object In_out & initializes it with command line arguments.
-in_out = In_out.new(ARGV[0], ARGV[1], ARGV[2])
-#Array for storing track records of all albums.
-out_items = []
+in_out = InOut.new(ARGV[0], ARGV[1], ARGV[2])
 #Main cycle. For each input file gets lines from file, parses them (Info class),
-#stores in tree of arrays (Album class), defaults empty fields,
-#converts to array of track records & add it to out_items array.
-in_out.get_each {|lines| out_items += Album.new(Info.new(lines)).default.to_items}
+#stores in tree of arrays (Album class), defaults empty records,
+#converts to array of track records & add it to output items array.
+in_out.get_each {|lines| Album.new(Info.new(lines)).default.to_items}
 #Puts track records for all albums to output file of selected kind.
-in_out.put(out_items)
+in_out.put
