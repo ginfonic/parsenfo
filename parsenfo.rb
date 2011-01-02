@@ -1,8 +1,8 @@
 #!/usr/bin/ruby -w
 #: Title		: parsenfo.rb (Parse NFO)
-#: Date			: 2010-06-22
+#: Date			: 2010-06-26
 #: Author		: "Eugene Fokin" <ginfonic@gmail.com>
-#: Version		: 3.1
+#: Version		: 3.2
 #: Description	: Parses text file with tagged CD records info
 #: Description	: into CSV or tab delimited text file or to SQLite3 database.
 #: Arguments	: [-options] input_file|input_folder [output_file]
@@ -16,7 +16,7 @@ class InOut
   OUT_LOG_FILE_NAME = "parsenfo"
   LOG_FILE_EXT = ".log"
   INFO = %q{
-parsenfo.rb # version: 3.1 # date: 2010-06-22
+parsenfo.rb # version: 3.2 # date: 2010-06-26
 created by: eugene fokin <ginfonic@gmail.com>
 description: parses text file with tagged cd records info
   into CSV or tab delimited text file or to sqlite3 database
@@ -25,7 +25,8 @@ usage: parsenfo.rb [-options] input_file|input_folder [output_file]
 
 options: -fvctl
   f: creates log file parcenfo.log in script folder (default)
-  v: verbose mode, creates no log file
+  v: verbose mode, puts log to console
+    also by default log adds to file parcenfo.log in script folder
   c: output file kind -- CSV, extention -- .csv (default)
   t: output file kind -- tab delimited text, extention -- .txt
   c: output file kind -- sqlite3 database, extention -- .db
@@ -39,7 +40,7 @@ output_file: file for storing parsed cd records info:
 
 Please, select input file or folder!}
   attr_reader :log_kind, :out_file_kind, :log_file, :in_files, :out_file, :log_lines, :out_items
-  #Initializes class with kind of output file, log mode, input & output files.
+  #Initializes class with kind of log & output file, input & output files.
   def initialize(options, in_file, out_file)
     #Defaults values of kind of log, kind & extention of output file.
     @log_kind, @out_file_kind, out_file_ext = :file, :csv, ".csv"
@@ -50,8 +51,6 @@ Please, select input file or folder!}
     if options_a.shift == "-"
       options_a.each do |option|
         case option
-        when "f"
-          @log_kind = :file
         when "v"
           @log_kind = :verbose
         when "c"
@@ -156,7 +155,7 @@ Please, select input file or folder!}
       File.open(@out_file, "a") {|fp| fp.puts lines}
     end
     #Puts log lines to log file.
-    File.open(@log_file, "a") {|fp| fp.puts @log_lines} if @log_kind == :file
+    File.open(@log_file, "a") {|fp| fp.puts @log_lines}
   end
 end
 #Info class for parsing data from input array.
@@ -273,48 +272,74 @@ end
 #SQLite3Query class for creating and inserting records into SQLite3 database.
 class SQLite3Query
   #Types.
-  Column = Struct.new(:header, :tycon)
+  Column = Struct.new(:header, :type_constraint)
   Table = Struct.new(:header, :constraint, :columns)
   #Constants.
   NULL = "NULL"
   #Column definitions.
-  ID_COLUMN = Column.new("id", "INTEGER PRIMARY KEY AUTOINCREMENT")
-  ALBUM_ARTIST_ID_COLUMN = Column.new("album_artist_id", "INTEGER")
-  ALBUM_TITLE_COLUMN = Column.new("album_title", "TEXT")
-  YEAR_COLUMN = Column.new("year", "TEXT")
-  PUBLISHER_ID_COLUMN = Column.new("publisher_id", "INTEGER")
-  CODEC_ID_COLUMN = Column.new("codec_id", "INTEGER")
-  STYLE_1_ID_COLUMN = Column.new("style_1_id", "INTEGER")
-  STYLE_2_ID_COLUMN = Column.new("style_2_id", "INTEGER")
-  STYLE_3_ID_COLUMN = Column.new("style_3_id", "INTEGER")
-  STYLE_4_ID_COLUMN = Column.new("style_4_id", "INTEGER")
-  STYLE_5_ID_COLUMN = Column.new("style_5_id", "INTEGER")
-  COMMENT_COLUMN = Column.new("comment", "TEXT")
-  DISC_NUMBER_COLUMN = Column.new("disc_number", "TEXT")
-  DISC_TITLE_COLUMN = Column.new("disc_title", "TEXT")
-  ALBUM_ID_COLUMN = Column.new("album_id", "INTEGER")
-  TRACK_NUMBER_COLUMN = Column.new("track_number", "TEXT")
-  TRACK_ARTIST_ID_COLUMN = Column.new("track_artist_id", "INTEGER")
-  TRACK_TITLE_COLUMN = Column.new("track_title", "TEXT")
-  DISC_ID_COLUMN = Column.new("disc_id", "INTEGER")
-  ARTIST_NAME_COLUMN = Column.new("artist_name", "TEXT UNIQUE")
-  PUBLISHER_COLUMN = Column.new("publisher", "TEXT UNIQUE")
-  CODEC_COLUMN = Column.new("codec", "TEXT UNIQUE")
-  STYLE_COLUMN = Column.new("style", "TEXT UNIQUE")
+  #TITLES_TABLE, YEARS_TABLE, PUBLISHERS_TABLE, CODECS_TABLE, COMMENTS_TABLE,
+  #COVERS_TABLE, ARTISTS_TABLE, STYLES_TABLE, COMPOSERS_TABLE.
+  TITLE_COLUMN = Column.new("title", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
+  YEAR_COLUMN = Column.new("year",
+    "INTEGER NOT NULL CHECK ((year > 1900) AND (year < SUBSTR(CURRENT_DATE,1,4) + 1)) UNIQUE")
+  PUBLISHER_COLUMN = Column.new("publisher", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
+  CODEC_COLUMN = Column.new("codec", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
+  COMMENT_COLUMN = Column.new("comment", "TEXT NOT NULL UNIQUE COLLATE NOCASE")  
+  COVER_COLUMN = Column.new("comment", "BLOB NOT NULL UNIQUE")
+  ARTIST_COLUMN = Column.new("artist", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
+  STYLE_COLUMN = Column.new("style", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
+  COMPOSER_COLUMN = Column.new("composer", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
+  #ALBUMS_TABLE.
+  TITLE_ID_COLUMN = Column.new("title_id", "INTEGER NOT NULL")
+  YEAR_ID_COLUMN = Column.new("year_id", "INTEGER NOT NULL")
+  PUBLISHER_ID_COLUMN = Column.new("publisher_id", "INTEGER NOT NULL")
+  CODEC_ID_COLUMN = Column.new("codec_id", "INTEGER NOT NULL")
+  COMMENT_ID_COLUMN = Column.new("comment_id", "INTEGER")
+  COVER_ID_COLUMN = Column.new("cover_id", "INTEGER")
+  #TRACKS_TABLE.
+  ALBUM_ID_COLUMN = Column.new("album_id", "INTEGER NOT NULL")
+  DISC_NUMBER_COLUMN = Column.new("disc_number", "INTEGER NOT NULL CHECK (disc_number > 0)")
+  TRACK_NUMBER_COLUMN = Column.new("track_number", "INTEGER NOT NULL CHECK (track_number > 0)")
+  #ALBUMS_ARTISTS_TABLE, TRACKS_ARTISTS_TABLE.
+  TRACK_ID_COLUMN = Column.new("track_id", "INTEGER NOT NULL")
+  ARTIST_ID_COLUMN = Column.new("artist_id", "INTEGER NOT NULL")
+  ARTIST_ORDER_COLUMN = Column.new("artist_order", "INTEGER NOT NULL")
+  #ALBUMS_STYLES_TABLE.
+  STYLE_ID_COLUMN = Column.new("style_id", "INTEGER NOT NULL")
+  STYLE_ORDER_COLUMN = Column.new("style_order", "INTEGER NOT NULL")
+  #TRACKS_COMPOSERS_TABLE.
+  COMPOSER_ID_COLUMN = Column.new("composer_id", "INTEGER NOT NULL")
+  COMPOSER_ORDER_COLUMN = Column.new("composer_order", "INTEGER NOT NULL")
   #Table definitions.
-  ARTISTS_TABLE = Table.new("artists", nil, [ID_COLUMN, ARTIST_NAME_COLUMN])
-  PUBLISHERS_TABLE = Table.new("publishers", nil, [ID_COLUMN, PUBLISHER_COLUMN])
-  CODECS_TABLE = Table.new("codecs", nil, [ID_COLUMN, CODEC_COLUMN])
-  STYLES_TABLE = Table.new("styles", nil, [ID_COLUMN, STYLE_COLUMN])
-  ALBUMS_TABLE = Table.new("albums", "UNIQUE (#{ALBUM_ARTIST_ID_COLUMN.header}, #{ALBUM_TITLE_COLUMN.header})",
-    [ID_COLUMN, ALBUM_ARTIST_ID_COLUMN, ALBUM_TITLE_COLUMN, YEAR_COLUMN, PUBLISHER_ID_COLUMN, CODEC_ID_COLUMN,
-    STYLE_1_ID_COLUMN, STYLE_2_ID_COLUMN, STYLE_3_ID_COLUMN, STYLE_4_ID_COLUMN, STYLE_5_ID_COLUMN, COMMENT_COLUMN])
-  DISCS_TABLE = Table.new("discs", "UNIQUE (#{DISC_NUMBER_COLUMN.header}, #{ALBUM_ID_COLUMN.header})",
-    [ID_COLUMN, DISC_NUMBER_COLUMN, DISC_TITLE_COLUMN, ALBUM_ID_COLUMN])
-  TRACKS_TABLE = Table.new("tracks", "UNIQUE (#{TRACK_NUMBER_COLUMN.header}, #{DISC_ID_COLUMN.header})",
-    [ID_COLUMN, TRACK_NUMBER_COLUMN, TRACK_ARTIST_ID_COLUMN, TRACK_TITLE_COLUMN, DISC_ID_COLUMN])
+  #Parent tables.
+  TITLES_TABLE = Table.new("titles", nil, [TITLE_COLUMN])
+  YEARS_TABLE = Table.new("years", nil, [YEAR_COLUMN])
+  PUBLISHERS_TABLE = Table.new("publishers", nil, [PUBLISHER_COLUMN])
+  CODECS_TABLE = Table.new("codecs", nil, [CODEC_COLUMN])
+  COMMENTS_TABLE = Table.new("comments", nil, [COMMENT_COLUMN])
+  COVERS_TABLE = Table.new("covers", nil, [COVER_COLUMN])
+  ARTISTS_TABLE = Table.new("artists", nil, [ARTIST_COLUMN])
+  STYLES_TABLE = Table.new("styles", nil, [STYLE_COLUMN])
+  COMPOSERS_TABLE = Table.new("composers", nil, [COMPOSER_COLUMN])
+  #Child tables.
+  ALBUMS_TABLE = Table.new("albums", nil,
+    [TITLE_ID_COLUMN, YEAR_ID_COLUMN, PUBLISHER_ID_COLUMN, CODEC_ID_COLUMN, COMMENT_ID_COLUMN, COVER_ID_COLUMN])
+  TRACKS_TABLE = Table.new("tracks",
+    "UNIQUE (#{DISC_NUMBER_COLUMN.header}, #{TRACK_NUMBER_COLUMN.header}, #{ALBUM_ID_COLUMN.header})",
+    [ALBUM_ID_COLUMN, DISC_NUMBER_COLUMN, TRACK_NUMBER_COLUMN, TITLE_ID_COLUMN])
+  #Junction tables.
+  ALBUMS_ARTISTS_TABLE = Table.new("albums_artists", "UNIQUE (#{ALBUM_ID_COLUMN.header}, #{ARTIST_ID_COLUMN.header})",
+    [ALBUM_ID_COLUMN, ARTIST_ID_COLUMN, ARTIST_ORDER_COLUMN])
+  ALBUMS_STYLES_TABLE = Table.new("albums_styles", "UNIQUE (#{ALBUM_ID_COLUMN.header}, #{STYLE_ID_COLUMN.header})",
+    [ALBUM_ID_COLUMN, STYLE_ID_COLUMN, STYLE_ORDER_COLUMN])
+  TRACKS_ARTISTS_TABLE = Table.new("tracks_artists", "UNIQUE (#{TRACK_ID_COLUMN.header}, #{ARTIST_ID_COLUMN.header})",
+    [TRACK_ID_COLUMN, ARTIST_ID_COLUMN, ARTIST_ORDER_COLUMN])
+  TRACKS_COMPOSERS_TABLE = Table.new("tracks_composers", "UNIQUE (#{TRACK_ID_COLUMN.header}, #{COMPOSER_ID_COLUMN.header})",
+    [TRACK_ID_COLUMN, COMPOSER_ID_COLUMN, COMPOSER_ORDER_COLUMN])
   #Database definition.
-  TABLES = [ARTISTS_TABLE, PUBLISHERS_TABLE, CODECS_TABLE, STYLES_TABLE, ALBUMS_TABLE, DISCS_TABLE, TRACKS_TABLE]
+  TABLES = [TITLES_TABLE, YEARS_TABLE, PUBLISHERS_TABLE, CODECS_TABLE, COMMENTS_TABLE,
+    COVERS_TABLE, ARTISTS_TABLE, STYLES_TABLE, COMPOSERS_TABLE, ALBUMS_TABLE, TRACKS_TABLE,
+    ALBUMS_ARTISTS_TABLE, ALBUMS_STYLES_TABLE, TRACKS_ARTISTS_TABLE, TRACKS_COMPOSERS_TABLE]
   #Attributes: link to database and array of hashes of track records.
   attr_reader :db, :items
   #Methods.
@@ -323,7 +348,7 @@ class SQLite3Query
     @db, @items = db, items
     TABLES.each do |table|
       sql = "CREATE TABLE IF NOT EXISTS #{table.header} ("
-      table.columns.each {|column| sql += "#{column.header} #{column.tycon}, "}
+      table.columns.each {|column| sql += "#{column.header} #{column.type_constraint}, "}
       sql = table.constraint.nil? ? "#{sql.slice(0, sql.length - 2)})" : "#{sql}#{table.constraint})"
       @db.execute(sql)
     end
@@ -342,13 +367,13 @@ class SQLite3Query
     #If no items to add returns nil (quoted to NULL).
     return nil if insert_items.first.nil?
     #Checks if row presents in table. If it's true returns id of row.
-    sql = "SELECT id FROM #{table.header} WHERE "
+    sql = "SELECT ROWID FROM #{table.header} WHERE "
     check_columns.each_with_index {|check_column, i| sql += "#{check_column.header} = #{quote(check_items[i])} AND "}
     sql = sql.slice(0, sql.length - 5)
     result = @db.execute(sql).first
     #If false inserts row into table and returns id of new row.
     if result.nil?
-      sql = "INSERT INTO #{table.header} VALUES (#{NULL}, "
+      sql = "INSERT INTO #{table.header} VALUES ("
       insert_items.each {|insert_item| sql += "#{quote(insert_item)}, "}
       sql = "#{sql.slice(0, sql.length - 2)})"
       @db.execute(sql)
