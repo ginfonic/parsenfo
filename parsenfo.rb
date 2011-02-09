@@ -19,17 +19,17 @@ class InOut
 parsenfo.rb # version: 3.2 # date: 2010-06-26
 created by: eugene fokin <ginfonic@gmail.com>
 description: parses text file with tagged cd records info
-  into CSV or tab delimited text file or to sqlite3 database
+  into csv or tab delimited text file or to sqlite3 database
 
 usage: parsenfo.rb [-options] input_file|input_folder [output_file]
 
 options: -fvctl
-  f: creates log file parcenfo.log in script folder (default)
+  f: creates log file parsenfo.log in script folder (default)
   v: verbose mode, puts log to console
     also by default log adds to file parcenfo.log in script folder
-  c: output file kind -- CSV, extention -- .csv (default)
+  c: output file kind -- csv, extention -- .csv (default)
   t: output file kind -- tab delimited text, extention -- .txt
-  c: output file kind -- sqlite3 database, extention -- .db
+  l: output file kind -- sqlite3 database, extention -- .db
 input_file: nfo text file with tagged cd records info
 input_folder: folder with these files:
   .txt extention, no recursing
