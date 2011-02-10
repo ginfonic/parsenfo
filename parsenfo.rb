@@ -303,9 +303,12 @@ class SQLite3Query
   #Types.
   Column = Struct.new(:header, :type_constraint)
   Table = Struct.new(:header, :constraint, :columns)
+
   #Constants.
   NULL = "NULL"
+
   #Column definitions.
+
   #TITLES_TABLE, YEARS_TABLE, PUBLISHERS_TABLE, CODECS_TABLE, COMMENTS_TABLE,
   #COVERS_TABLE, ARTISTS_TABLE, STYLES_TABLE, COMPOSERS_TABLE.
   TITLE_COLUMN = Column.new("title", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
@@ -318,6 +321,7 @@ class SQLite3Query
   ARTIST_COLUMN = Column.new("artist", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
   STYLE_COLUMN = Column.new("style", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
   COMPOSER_COLUMN = Column.new("composer", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
+
   #ALBUMS_TABLE.
   TITLE_ID_COLUMN = Column.new("title_id", "INTEGER NOT NULL")
   YEAR_ID_COLUMN = Column.new("year_id", "INTEGER NOT NULL")
@@ -325,20 +329,25 @@ class SQLite3Query
   CODEC_ID_COLUMN = Column.new("codec_id", "INTEGER NOT NULL")
   COMMENT_ID_COLUMN = Column.new("comment_id", "INTEGER")
   COVER_ID_COLUMN = Column.new("cover_id", "INTEGER")
+
   #TRACKS_TABLE.
   ALBUM_ID_COLUMN = Column.new("album_id", "INTEGER NOT NULL")
   DISC_NUMBER_COLUMN = Column.new("disc_number", "INTEGER NOT NULL CHECK (disc_number > 0)")
   TRACK_NUMBER_COLUMN = Column.new("track_number", "INTEGER NOT NULL CHECK (track_number > 0)")
+
   #ALBUMS_ARTISTS_TABLE, TRACKS_ARTISTS_TABLE.
   TRACK_ID_COLUMN = Column.new("track_id", "INTEGER NOT NULL")
   ARTIST_ID_COLUMN = Column.new("artist_id", "INTEGER NOT NULL")
   ARTIST_ORDER_COLUMN = Column.new("artist_order", "INTEGER NOT NULL")
+
   #ALBUMS_STYLES_TABLE.
   STYLE_ID_COLUMN = Column.new("style_id", "INTEGER NOT NULL")
   STYLE_ORDER_COLUMN = Column.new("style_order", "INTEGER NOT NULL")
+
   #TRACKS_COMPOSERS_TABLE.
   COMPOSER_ID_COLUMN = Column.new("composer_id", "INTEGER NOT NULL")
   COMPOSER_ORDER_COLUMN = Column.new("composer_order", "INTEGER NOT NULL")
+
   #Table definitions.
   #Parent tables.
   TITLES_TABLE = Table.new("titles", nil, [TITLE_COLUMN])
@@ -347,15 +356,17 @@ class SQLite3Query
   CODECS_TABLE = Table.new("codecs", nil, [CODEC_COLUMN])
   COMMENTS_TABLE = Table.new("comments", nil, [COMMENT_COLUMN])
   COVERS_TABLE = Table.new("covers", nil, [COVER_COLUMN])
-  ARTISTS_TABLE = Table.new("artists", nil, [ARTIST_COLUMN])
   STYLES_TABLE = Table.new("styles", nil, [STYLE_COLUMN])
   COMPOSERS_TABLE = Table.new("composers", nil, [COMPOSER_COLUMN])
+  ARTISTS_TABLE = Table.new("artists", nil, [ARTIST_COLUMN])
+
   #Child tables.
   ALBUMS_TABLE = Table.new("albums", nil,
     [TITLE_ID_COLUMN, YEAR_ID_COLUMN, PUBLISHER_ID_COLUMN, CODEC_ID_COLUMN, COMMENT_ID_COLUMN, COVER_ID_COLUMN])
   TRACKS_TABLE = Table.new("tracks",
     "UNIQUE (#{DISC_NUMBER_COLUMN.header}, #{TRACK_NUMBER_COLUMN.header}, #{ALBUM_ID_COLUMN.header})",
     [ALBUM_ID_COLUMN, DISC_NUMBER_COLUMN, TRACK_NUMBER_COLUMN, TITLE_ID_COLUMN])
+
   #Junction tables.
   ALBUMS_ARTISTS_TABLE = Table.new("albums_artists", "UNIQUE (#{ALBUM_ID_COLUMN.header}, #{ARTIST_ID_COLUMN.header})",
     [ALBUM_ID_COLUMN, ARTIST_ID_COLUMN, ARTIST_ORDER_COLUMN])
@@ -365,12 +376,15 @@ class SQLite3Query
     [TRACK_ID_COLUMN, ARTIST_ID_COLUMN, ARTIST_ORDER_COLUMN])
   TRACKS_COMPOSERS_TABLE = Table.new("tracks_composers", "UNIQUE (#{TRACK_ID_COLUMN.header}, #{COMPOSER_ID_COLUMN.header})",
     [TRACK_ID_COLUMN, COMPOSER_ID_COLUMN, COMPOSER_ORDER_COLUMN])
+
   #Database definition.
   TABLES = [TITLES_TABLE, YEARS_TABLE, PUBLISHERS_TABLE, CODECS_TABLE, COMMENTS_TABLE,
-    COVERS_TABLE, ARTISTS_TABLE, STYLES_TABLE, COMPOSERS_TABLE, ALBUMS_TABLE, TRACKS_TABLE,
+    COVERS_TABLE, STYLES_TABLE, COMPOSERS_TABLE, ARTISTS_TABLE, ALBUMS_TABLE, TRACKS_TABLE,
     ALBUMS_ARTISTS_TABLE, ALBUMS_STYLES_TABLE, TRACKS_ARTISTS_TABLE, TRACKS_COMPOSERS_TABLE]
+
   #Attributes: link to database and array of hashes of track records.
   attr_reader :db, :items
+
   #Methods.
   #Initializes attributes and create tables if they not exist.
   def initialize(db, items)
@@ -382,10 +396,12 @@ class SQLite3Query
       @db.execute(sql)
     end
   end
+
   #Safely quotes string to SQLite3. If nil returns NULL.
   def quote(string)
     result = string.nil? ? NULL : "'#{SQLite3::Database.quote(string)}'"
   end
+
   #Inserts raw into table if not exists and returns id. If exists returns id of existing one.
   #Could have 3 o4 4 arguments. The last 3 - arrays or single items.
   def insert_if_not_exists(table, check_columns, check_items, insert_items = check_items)
@@ -411,22 +427,39 @@ class SQLite3Query
     end
     result.to_s
   end
+
   #For every track records item inserts records into corresponding tables.
   def insert_records
     @items.each do |item|
-      #Artists, publishers, codecs and styles tables.
+      #Titles, years, publishers, codecs, comments & covers tables.
+      album_title_id = insert_if_not_exists(TITLES_TABLE, TITLE_COLUMN, item[:album_title])
+      track_title_id = insert_if_not_exists(TITLES_TABLE, TITLE_COLUMN, item[:track_title])
+      year_id = insert_if_not_exists(YEARS_TABLE, YEAR_COLUMN, item[:year])
+      publisher_id = insert_if_not_exists(PUBLISHERS_TABLE, PUBLISHER_COLUMN, item[:publisher])
+      codec_id = insert_if_not_exists(CODECS_TABLE, CODEC_COLUMN, item[:codec])
+      comment_id = insert_if_not_exists(COMMENTS_TABLE, COMMENT_COLUMN, item[:comment])
+      #cover_id = insert_if_not_exists(COVERS_TABLE, COVER_COLUMN, item[:cover])
+
+      #Styles table.
+      styles = item[:style].split(", ")
+      style_ids = []
+      styles.each do |style|
+        style_ids << insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, style)
+      end
+
+      #Composers table.
+      composers = item[:composer].split(", ")
+      composer_ids = []
+      composers.each do |composer|
+        composer_ids << insert_if_not_exists(COMPOSERS_TABLE, COMPOSER_COLUMN, composer)
+      end
+
+      #Artists table.
       album_artist_id = insert_if_not_exists(ARTISTS_TABLE, ARTIST_NAME_COLUMN, item[:album_artist_name])
       track_artist_id = item[:track_artist_name] == item[:album_artist_name] ?
         album_artist_id :
         insert_if_not_exists(ARTISTS_TABLE, ARTIST_NAME_COLUMN, item[:track_artist_name])
-      publisher_id = insert_if_not_exists(PUBLISHERS_TABLE, PUBLISHER_COLUMN, item[:publisher])
-      codec_id = insert_if_not_exists(CODECS_TABLE, CODEC_COLUMN, item[:codec])
-      styles = item[:style].split(", ")
-      style_1_id = insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, styles[0])
-      style_2_id = insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, styles[1])
-      style_3_id = insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, styles[2])
-      style_4_id = insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, styles[3])
-      style_5_id = insert_if_not_exists(STYLES_TABLE, STYLE_COLUMN, styles[4])
+
       #Albums table.
       check_columns = [ALBUM_ARTIST_ID_COLUMN, ALBUM_TITLE_COLUMN]
       check_items = [album_artist_id, item[:album_title]]
@@ -447,6 +480,7 @@ class SQLite3Query
     end
   end
 end
+
 #Creates object In_out & initializes it with command line arguments.
 in_out = InOut.new(ARGV[0], ARGV[1], ARGV[2])
 #Main cycle. For each input file gets lines from file,
