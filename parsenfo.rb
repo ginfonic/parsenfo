@@ -159,10 +159,10 @@ Please, select input file or folder!}
   def to_hashes(items)
     hashes = []
     items.each do |item|
-      hashes << {:codec => item[0], :album_artist_name => item[1], :album_title => item[2], :year => item[3],
+      hashes << {:codec => item[0], :album_artist => item[1], :album_title => item[2], :year => item[3],
         :publisher => item[4], :genre => item[5], :style => item[6], :comment => item[7],
         :disc_number => item[8], :disc_title => item[9], :track_number => item[10],
-        :track_artist_name => item[11], :track_title => item[12], :composer => item[13]}
+        :track_artist => item[11], :track_title => item[12], :composer => item[13]}
     end
     hashes
   end
@@ -177,21 +177,21 @@ end
 #Album class with tree of arrays (Disc, Track structures) for storing data from input array.
 class Album
   #Types.
-  Info = Struct.new(:codec, :album_artist_name, :album_title, :year, :publisher, :genre, :style, :comment,
-    :track_counts, :disc_titles, :track_artist_names, :track_titles, :composers)
+  Info = Struct.new(:codec, :album_artist, :album_title, :year, :publisher, :genre, :style, :comment,
+    :track_counts, :disc_titles, :track_artists, :track_titles, :composers)
   Disc = Struct.new(:disc_number, :disc_title, :tracks)
-  Track = Struct.new(:track_number, :track_artist_name, :track_title, :composer)
+  Track = Struct.new(:track_number, :track_artist, :track_title, :composer)
 
   #Accessors.
-  #attr_reader :codec, :album_artist_name, :album_title, :year, :publisher, :genre, :style, :comment, :discs
+  #attr_reader :codec, :album_artist, :album_title, :year, :publisher, :genre, :style, :comment, :discs
 
   #Methods.
   #Fills tree of arrays with data from input array.
   def initialize(lines)
     #Parses data from input array and returns them in Info structure.
     info = parse_info(lines)
-    @codec, @album_artist_name, @album_title, @year, @publisher, @genre, @style, @comment, @discs =
-      info.codec, info.album_artist_name, info.album_title, info.year,
+    @codec, @album_artist, @album_title, @year, @publisher, @genre, @style, @comment, @discs =
+      info.codec, info.album_artist, info.album_title, info.year,
       info.publisher, info.genre, info.style, info.comment, []
     #Number of discs is equal number of tags MTC plus 1.
     disc_count = info.track_counts.length + 1
@@ -207,7 +207,7 @@ class Album
       k = 0
       while track_count > k
         #Creates & adds new track.
-        track = Track.new((k + 1).to_s, info.track_artist_names[j], info.track_titles[j], info.composers[j])
+        track = Track.new((k + 1).to_s, info.track_artists[j], info.track_titles[j], info.composers[j])
         disc.tracks << track
         j += 1
         k += 1
@@ -225,8 +225,8 @@ class Album
     items = []
     @discs.each do |disc|
       disc.tracks.each do |track|
-        items << [@codec, @album_artist_name, @album_title, @year, @publisher, @genre, @style, @comment,
-          disc.disc_number, disc.disc_title, track.track_number, track.track_artist_name, track.track_title, track.composer]
+        items << [@codec, @album_artist, @album_title, @year, @publisher, @genre, @style, @comment,
+          disc.disc_number, disc.disc_title, track.track_number, track.track_artist, track.track_title, track.composer]
       end
     end
     items
@@ -251,7 +251,7 @@ class Album
       when "COD"
         info.codec = line
       when "ART"
-        info.album_artist_name = line
+        info.album_artist = line
       when "ALB"
         info.album_title = line
       when "YEA"
@@ -269,7 +269,7 @@ class Album
       when "MAL"
         info.disc_titles << line
       when "TAR"
-        info.track_artist_names << line
+        info.track_artists << line
       when "TRA"
         info.track_titles << line
       when "CMP"
@@ -280,17 +280,17 @@ class Album
     info
   end
 
-  #Fills empty records (disc_title, track_artist_name & composer) by default.
+  #Fills empty records (disc_title, track_artist & composer) by default.
   def default
     @discs.each do |disc|
       if disc.disc_title.nil?
         disc.disc_title = @discs.length > 1 ? "#{@album_title} CD#{disc.disc_number}" : @album_title
       end
       disc.tracks.each do |track|
-        track.track_artist_name = @album_artist_name if track.track_artist_name.nil?
+        track.track_artist = @album_artist if track.track_artist.nil?
         if track.composer.nil?
           if !@discs.first.tracks.first.composer.nil? then track.composer = @discs.first.tracks.first.composer
-          else track.composer = track.track_artist_name end
+          else track.composer = track.track_artist end
         end
       end
     end
@@ -364,8 +364,8 @@ class SQLite3Query
   ALBUMS_TABLE = Table.new("albums", nil,
     [TITLE_ID_COLUMN, YEAR_ID_COLUMN, PUBLISHER_ID_COLUMN, CODEC_ID_COLUMN, COMMENT_ID_COLUMN, COVER_ID_COLUMN])
   TRACKS_TABLE = Table.new("tracks",
-    "UNIQUE (#{DISC_NUMBER_COLUMN.header}, #{TRACK_NUMBER_COLUMN.header}, #{ALBUM_ID_COLUMN.header})",
-    [ALBUM_ID_COLUMN, DISC_NUMBER_COLUMN, TRACK_NUMBER_COLUMN, TITLE_ID_COLUMN])
+    "UNIQUE (#{TRACK_NUMBER_COLUMN.header}, #{DISC_NUMBER_COLUMN.header}, #{ALBUM_ID_COLUMN.header})",
+    [TITLE_ID_COLUMN, TRACK_NUMBER_COLUMN, DISC_NUMBER_COLUMN, ALBUM_ID_COLUMN])
 
   #Junction tables.
   ALBUMS_ARTISTS_TABLE = Table.new("albums_artists", "UNIQUE (#{ALBUM_ID_COLUMN.header}, #{ARTIST_ID_COLUMN.header})",
@@ -455,28 +455,67 @@ class SQLite3Query
       end
 
       #Artists table.
-      album_artist_id = insert_if_not_exists(ARTISTS_TABLE, ARTIST_NAME_COLUMN, item[:album_artist_name])
-      track_artist_id = item[:track_artist_name] == item[:album_artist_name] ?
-        album_artist_id :
-        insert_if_not_exists(ARTISTS_TABLE, ARTIST_NAME_COLUMN, item[:track_artist_name])
+      #Album_artist.
+      album_artists = item[:album_artist].split(", ")
+      album_artist_ids = []
+      album_artists.each do |album_artist|
+        album_artist_ids << insert_if_not_exists(ARTISTS_TABLE, ARTIST_COLUMN, album_artist)
+      end
+
+      #Track_artist.
+      if item[:track_artist] == item[:album_artist]
+        track_artist_ids = album_artist_ids
+      else
+        track_artists = item[:track_artist].split(", ")
+        track_artist_ids = []
+        track_artists.each do |track_artist|
+          track_artist_ids << insert_if_not_exists(ARTISTS_TABLE, ARTIST_COLUMN, track_artist)
+      end
 
       #Albums table.
-      check_columns = [ALBUM_ARTIST_ID_COLUMN, ALBUM_TITLE_COLUMN]
-      check_items = [album_artist_id, item[:album_title]]
-      insert_items = [album_artist_id, item[:album_title], item[:year], publisher_id, codec_id,
-        style_1_id, style_2_id, style_3_id, style_4_id, style_5_id, item[:comment]]
+      #check_columns = [ALBUM_ARTIST_ID_COLUMN, ALBUM_TITLE_COLUMN]
+      #check_items = [album_artist_id, item[:album_title]]
+      insert_items = [album_title_id, year_id, publisher_id, codec_id, comment_id]#, cover_id]
       album_id = insert_if_not_exists(ALBUMS_TABLE, check_columns, check_items, insert_items)
-      #Discs table.
-      check_columns = [DISC_NUMBER_COLUMN, ALBUM_ID_COLUMN]
-      check_items = [item[:disc_number], album_id]
-      insert_items = [item[:disc_number], item[:disc_title], album_id]
-      disc_id = insert_if_not_exists(DISCS_TABLE, check_columns, check_items, insert_items)
+
       #Tracks table.
-      check_columns = [TRACK_NUMBER_COLUMN, DISC_ID_COLUMN]
-      check_items = [item[:track_number], disc_id]
-      insert_items = [item[:track_number], track_artist_id, item[:track_title], disc_id]
+      check_columns = [TRACK_NUMBER_COLUMN, DISC_NUMBER_COLUMN, ALBUM_ID_COLUMN]
+      check_items = [item[:track_number], item[:disc_number], album_id]
+      insert_items = [item[:track_title], item[:track_number], item[:disc_number], album_id]
       track_id = insert_if_not_exists(TRACKS_TABLE, check_columns, check_items, insert_items)
       #puts "Album: #{album_id}\tDisc: #{disc_id}\tTrack: #{track_id}"
+
+      #Albums_Artists table.
+      check_columns = [ALBUM_ID_COLUMN, ARTIST_ID_COLUMN]
+      album_artist_ids.each_with_index do |album_artist_id, i|
+        check_items = [album_id, album_artist_id]
+        insert_items = [album_id, album_artist_id, i]
+        insert_if_not_exists(ALBUMS_ARTISTS_TABLE, check_columns, check_items, insert_items)
+      end
+
+      #Albums_Styles table.
+      check_columns = [ALBUM_ID_COLUMN, STYLE_ID_COLUMN]
+      style_ids.each_with_index do |style_id, i|
+        check_items = [album_id, style_id]
+        insert_items = [album_id, style_id, i]
+        insert_if_not_exists(ALBUMS_STYLES_TABLE, check_columns, check_items, insert_items)
+      end
+
+      #Tracks_Artists table.
+      check_columns = [TRACK_ID_COLUMN, ARTIST_ID_COLUMN]
+      track_artist_ids.each_with_index do |track_artist_id, i|
+        check_items = [track_id, track_artist_id]
+        insert_items = [track_id, track_artist_id, i]
+        insert_if_not_exists(TRACKS_ARTISTS_TABLE, check_columns, check_items, insert_items)
+      end
+
+      #Tracks_Composers table.
+      check_columns = [TRACK_ID_COLUMN, COMPOSER_ID_COLUMN]
+      composer_ids.each_with_index do |composer_id, i|
+        check_items = [track_id, composer_id]
+        insert_items = [track_id, composer_id, i]
+        insert_if_not_exists(TRACKS_COMPOSERS_TABLE, check_columns, check_items, insert_items)
+      end
     end
   end
 end
