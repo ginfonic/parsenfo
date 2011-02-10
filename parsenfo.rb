@@ -174,62 +174,22 @@ Please, select input file or folder!}
   end
 end
 
-#Info class for parsing data from input array.
-class Info
-  attr_reader :codec, :album_artist_name, :album_title, :year, :publisher, :genre, :style, :comment,
-    :track_counts, :disc_titles, :track_artist_names, :track_titles, :composers
-  #Parses data from input array.
-  def initialize(lines)
-    @track_counts, @disc_titles, @track_artist_names, @track_titles, @composers = [], [], [], [], []
-    lines.each do |line|
-      #Finds tag name in string.
-      tag_end = line.index("=")
-      #Rejects empty lines & lines with no tag name.
-      next if line.empty? || tag_end.nil?
-      #Detaches tag name.
-      tag = line.slice!(0, tag_end + 1)
-      #Fills values based on tag names.
-      case tag.slice(0, 3)
-      when "COD"
-        @codec = line
-      when "ART"
-        @album_artist_name = line
-      when "ALB"
-        @album_title = line
-      when "YEA"
-        @year = line
-      when "PUB"
-        @publisher = line
-      when "GEN"
-        @genre = line
-      when "STY"
-        @style = line
-      when "CMT"
-        @comment = line
-      when "MTC"
-        @track_counts << line
-      when "MAL"
-        @disc_titles << line
-      when "TAR"
-        @track_artist_names << line
-      when "TRA"
-        @track_titles << line
-      when "CMP"
-        @composers << line
-      end
-    end
-  end
-end
-#Album class with tree of arrays (Disc, Track structures) for storing data from Info object.
+#Album class with tree of arrays (Disc, Track structures) for storing data from input array.
 class Album
   #Types.
+  Info = Struct.new(:codec, :album_artist_name, :album_title, :year, :publisher, :genre, :style, :comment,
+    :track_counts, :disc_titles, :track_artist_names, :track_titles, :composers)
   Disc = Struct.new(:disc_number, :disc_title, :tracks)
   Track = Struct.new(:track_number, :track_artist_name, :track_title, :composer)
-  #Attributes.
-  attr_reader :codec, :album_artist_name, :album_title, :year, :publisher, :genre, :style, :comment, :discs
+
+  #Accessors.
+  #attr_reader :codec, :album_artist_name, :album_title, :year, :publisher, :genre, :style, :comment, :discs
+
   #Methods.
-  #Fills tree of arrays with data from Info object.
-  def initialize(info)
+  #Fills tree of arrays with data from input array.
+  def initialize(lines)
+    #Parses data from input array and returns them in Info structure.
+    info = parse_info(lines)
     @codec, @album_artist_name, @album_title, @year, @publisher, @genre, @style, @comment, @discs =
       info.codec, info.album_artist_name, info.album_title, info.year,
       info.publisher, info.genre, info.style, info.comment, []
@@ -256,7 +216,70 @@ class Album
       @discs << disc
       i += 1
     end
+    #Fills empty records by default.
+    default
   end
+
+  #Converts tree of arrays to array of track records.
+  def to_items
+    items = []
+    @discs.each do |disc|
+      disc.tracks.each do |track|
+        items << [@codec, @album_artist_name, @album_title, @year, @publisher, @genre, @style, @comment,
+          disc.disc_number, disc.disc_title, track.track_number, track.track_artist_name, track.track_title, track.composer]
+      end
+    end
+    items
+  end
+
+  #Private methods.
+  private
+
+  #Parses data from input array.
+  def parse_info(lines)
+    #Creates structure info for storing parsed data.
+    info = Info.new(nil, nil, nil, nil, nil, nil, nil, nil, [], [], [], [], [])
+    lines.each do |line|
+      #Finds tag name in string.
+      tag_end = line.index("=")
+      #Rejects empty lines & lines with no tag name.
+      next if line.empty? || tag_end.nil?
+      #Detaches tag name.
+      tag = line.slice!(0, tag_end + 1)
+      #Fills values based on tag names.
+      case tag.slice(0, 3)
+      when "COD"
+        info.codec = line
+      when "ART"
+        info.album_artist_name = line
+      when "ALB"
+        info.album_title = line
+      when "YEA"
+        info.year = line
+      when "PUB"
+        info.publisher = line
+      when "GEN"
+        info.genre = line
+      when "STY"
+        info.style = line
+      when "CMT"
+        info.comment = line
+      when "MTC"
+        info.track_counts << line
+      when "MAL"
+        info.disc_titles << line
+      when "TAR"
+        info.track_artist_names << line
+      when "TRA"
+        info.track_titles << line
+      when "CMP"
+        info.composers << line
+      end
+    end
+    #Returns info.
+    info
+  end
+
   #Fills empty records (disc_title, track_artist_name & composer) by default.
   def default
     @discs.each do |disc|
@@ -273,18 +296,8 @@ class Album
     end
     self
   end
-  #Converts tree of arrays to array of track records.
-  def to_items
-    items = []
-    @discs.each do |disc|
-      disc.tracks.each do |track|
-        items << [@codec, @album_artist_name, @album_title, @year, @publisher, @genre, @style, @comment,
-          disc.disc_number, disc.disc_title, track.track_number, track.track_artist_name, track.track_title, track.composer]
-      end
-    end
-    items
-  end
 end
+
 #SQLite3Query class for creating and inserting records into SQLite3 database.
 class SQLite3Query
   #Types.
@@ -436,9 +449,9 @@ class SQLite3Query
 end
 #Creates object In_out & initializes it with command line arguments.
 in_out = InOut.new(ARGV[0], ARGV[1], ARGV[2])
-#Main cycle. For each input file gets lines from file, parses them (Info class),
-#stores in tree of arrays (Album class), defaults empty records,
+#Main cycle. For each input file gets lines from file,
+#parses them, stores in tree of arrays, defaults empty records,
 #converts to array of track records & add it to output items array.
-in_out.get_each {|lines| Album.new(Info.new(lines)).default.to_items}
+in_out.get_each {|lines| Album.new(lines).to_items}
 #Puts track records for all albums to output file of selected kind.
 in_out.put
