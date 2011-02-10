@@ -9,9 +9,11 @@
 #
 require "rubygems"
 require "sqlite3"
+
 #InOut class for parsing arguments, getting strings from text file, storing track records of all albums
 #& putting them to CSV or tab delimited text file or to SQLite3 database.
 class InOut
+  #Constants.
   IN_FILE_EXT = ".txt"
   OUT_LOG_FILE_NAME = "parsenfo"
   LOG_FILE_EXT = ".log"
@@ -39,13 +41,17 @@ output_file: file for storing parsed cd records info:
   and stored into folder with input_file
 
 Please, select input file or folder!}
-  attr_reader :log_kind, :out_file_kind, :log_file, :in_files, :out_file, :log_lines, :out_items
+  #Accessors.
+  #attr_reader :log_kind, :out_file_kind, :log_file, :in_files, :out_file, :log_lines, :out_items
+
+  #Public methods.
   #Initializes class with kind of log & output file, input & output files.
   def initialize(options, in_file, out_file)
     #Defaults values of kind of log, kind & extention of output file.
     @log_kind, @out_file_kind, out_file_ext = :file, :csv, ".csv"
     #Defines array of output items for storing track records of all albums.
     @out_items = []
+
     #Defines kind of log (text file or verbose) & output file (CSV, tab delimited or SQLite3).
     options_a = options.to_s.split(//)
     if options_a.shift == "-"
@@ -64,9 +70,8 @@ Please, select input file or folder!}
     else
       out_file, in_file = in_file, options
     end
+
     #Defines input files.
-    #Extention of input files.
-    #Array of input files.
     @in_files = []
     if in_file.nil?
     #If in_file is folder gets all files from it.
@@ -76,11 +81,12 @@ Please, select input file or folder!}
     elsif File.exist?(in_file) && File.extname(in_file) == IN_FILE_EXT
       @in_files << in_file
     end
-    #Exits with message if no input files.
+    #Exits with help message if no valid input files.
     if @in_files.empty?
       puts INFO
       exit
     end
+
     #Defines output file.
     #If out_file is not selected defaults it.
     if out_file.nil?
@@ -91,11 +97,13 @@ Please, select input file or folder!}
     else
       @out_file = "#{out_file}#{out_file_ext if File.extname(out_file).empty?}"
     end
+
     #Defines log file.
     @log_file = "#{File.dirname(__FILE__)}/#{OUT_LOG_FILE_NAME}#{LOG_FILE_EXT}"
     #Defines array of log lines.
     @log_lines = ["##### parsenfo.rb log file created at #{Time.now} #####\n##### output file: #{@out_file} #####"]
   end
+
   #Gets strings from each input file to array and calls external block to treat it.
   #Result of calling (track records of album) adds to array of output items.
   def get_each
@@ -109,39 +117,7 @@ Please, select input file or folder!}
       end
     end
   end
-  #Converts array of track records to array of CSV records.
-  def to_csv_lines(items)
-    require "csv"
-    lines = []
-    items.each {|item| lines << CSV.generate_line(item)}
-    lines
-  end
-  #Converts array of track records to array of tab delimited records.
-  def to_tab_lines(items)
-    lines = []
-    items.each do |raw|
-      line = ""
-      raw.each {|record| line += "#{record}\t"}
-      lines << line.slice(0, line.length - 1)
-    end
-    lines
-  end
-  #Converts array of track records to array of hashes of track records.
-  def to_hashes(items)
-    hashes = []
-    items.each do |item|
-      hashes << {:codec => item[0], :album_artist_name => item[1], :album_title => item[2], :year => item[3],
-        :publisher => item[4], :genre => item[5], :style => item[6], :comment => item[7],
-        :disc_number => item[8], :disc_title => item[9], :track_number => item[10],
-        :track_artist_name => item[11], :track_title => item[12], :composer => item[13]}
-    end
-    hashes
-  end
-  def to_log(items)
-    log_line = "#{log_lines.length}: #{items[0][1]} - #{items[0][2]}"
-    puts log_line if log_kind == :verbose
-    log_lines << log_line
-  end
+
   #Puts array of track records to output file.
   def put
     if @out_file_kind == :sqlite3
@@ -157,7 +133,47 @@ Please, select input file or folder!}
     #Puts log lines to log file.
     File.open(@log_file, "a") {|fp| fp.puts @log_lines}
   end
+
+  #Private metods.
+  private
+  #Converts array of track records to array of CSV records.
+  def to_csv_lines(items)
+    require "csv"
+    lines = []
+    items.each {|item| lines << CSV.generate_line(item)}
+    lines
+  end
+
+  #Converts array of track records to array of tab delimited records.
+  def to_tab_lines(items)
+    lines = []
+    items.each do |raw|
+      line = ""
+      raw.each {|record| line += "#{record}\t"}
+      lines << line.slice(0, line.length - 1)
+    end
+    lines
+  end
+
+  #Converts array of track records to array of hashes of track records.
+  def to_hashes(items)
+    hashes = []
+    items.each do |item|
+      hashes << {:codec => item[0], :album_artist_name => item[1], :album_title => item[2], :year => item[3],
+        :publisher => item[4], :genre => item[5], :style => item[6], :comment => item[7],
+        :disc_number => item[8], :disc_title => item[9], :track_number => item[10],
+        :track_artist_name => item[11], :track_title => item[12], :composer => item[13]}
+    end
+    hashes
+  end
+
+  def to_log(items)
+    log_line = "#{@log_lines.length}: #{items[0][1]} - #{items[0][2]}"
+    puts log_line if @log_kind == :verbose
+    @log_lines << log_line
+  end
 end
+
 #Info class for parsing data from input array.
 class Info
   attr_reader :codec, :album_artist_name, :album_title, :year, :publisher, :genre, :style, :comment,
