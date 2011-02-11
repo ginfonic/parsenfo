@@ -183,16 +183,7 @@ class Album
 	Track = Struct.new(:track_number, :track_artist, :track_title, :composer)
 
 	#Attributes.
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> replaced spaces with tabs
-	#attr_reader :codec, :album_artist, :album_title, :year, :publisher, :genre, :style, :comment, :discs
-=======
 	#attr_reader :codec, :album_artist, :album_title, :year, :publisher, :genre, :style, :comment, :cover, :discs
->>>>>>> continued updating SQLite3Query::insert_records. bugs corrected, added cover field. Albums table unique checking stayed unsolved
-=======
-	#attr_reader :codec, :album_artist, :album_title, :year, :publisher, :genre, :style, :comment, :cover, :discs
->>>>>>> continued updating SQLite3Query::insert_records. bugs corrected, added cover field. Albums table unique checking stayed unsolved
 
 	#Methods.
 	#Fills tree of arrays with data from input array.
