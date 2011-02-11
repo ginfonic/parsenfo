@@ -164,9 +164,9 @@ Please, select input file or folder!}
 		hashes = []
 		items.each do |item|
 			hashes << {:codec => item[0], :album_artist => item[1], :album_title => item[2], :year => item[3],
-				:publisher => item[4], :genre => item[5], :style => item[6], :comment => item[7],
-				:disc_number => item[8], :disc_title => item[9], :track_number => item[10],
-				:track_artist => item[11], :track_title => item[12], :composer => item[13]}
+				:publisher => item[4], :genre => item[5], :style => item[6], :comment => item[7], :cover => item[8],
+				:disc_number => item[9], :disc_title => item[10], :track_number => item[11],
+				:track_artist => item[12], :track_title => item[13], :composer => item[14]}
 		end
 		hashes
 	end
@@ -190,17 +190,21 @@ class Album
 	#Accessors.
 =======
 	#Attributes.
+<<<<<<< HEAD
 >>>>>>> replaced spaces with tabs
 	#attr_reader :codec, :album_artist, :album_title, :year, :publisher, :genre, :style, :comment, :discs
+=======
+	#attr_reader :codec, :album_artist, :album_title, :year, :publisher, :genre, :style, :comment, :cover, :discs
+>>>>>>> continued updating SQLite3Query::insert_records. bugs corrected, added cover field. Albums table unique checking stayed unsolved
 
 	#Methods.
 	#Fills tree of arrays with data from input array.
 	def initialize(lines)
 		#Parses data from input array and returns them in Info structure.
 		info = parse_info(lines)
-		@codec, @album_artist, @album_title, @year, @publisher, @genre, @style, @comment, @discs =
+		@codec, @album_artist, @album_title, @year, @publisher, @genre, @style, @comment, @cover, @discs =
 			info.codec, info.album_artist, info.album_title, info.year,
-			info.publisher, info.genre, info.style, info.comment, []
+			info.publisher, info.genre, info.style, info.comment, nil, []
 		#Number of discs is equal number of tags MTC plus 1.
 		disc_count = info.track_counts.length + 1
 		i = j = 0
@@ -233,7 +237,7 @@ class Album
 		items = []
 		@discs.each do |disc|
 			disc.tracks.each do |track|
-				items << [@codec, @album_artist, @album_title, @year, @publisher, @genre, @style, @comment,
+				items << [@codec, @album_artist, @album_title, @year, @publisher, @genre, @style, @comment, @cover,
 					disc.disc_number, disc.disc_title, track.track_number, track.track_artist, track.track_title, track.composer]
 			end
 		end
@@ -411,7 +415,7 @@ class SQLite3Query
 
 	#Safely quotes string to SQLite3. If nil returns NULL.
 	def quote(string)
-		result = string.nil? ? NULL : "'#{SQLite3::Database.quote(string)}'"
+		string.nil? ? NULL : "'#{SQLite3::Database.quote(string)}'"
 	end
 
 	#Inserts raw into table if not exists and returns id. If exists returns id of existing one.
@@ -450,7 +454,7 @@ class SQLite3Query
 			publisher_id = insert_if_not_exists(PUBLISHERS_TABLE, PUBLISHER_COLUMN, item[:publisher])
 			codec_id = insert_if_not_exists(CODECS_TABLE, CODEC_COLUMN, item[:codec])
 			comment_id = insert_if_not_exists(COMMENTS_TABLE, COMMENT_COLUMN, item[:comment])
-			#cover_id = insert_if_not_exists(COVERS_TABLE, COVER_COLUMN, item[:cover])
+			cover_id = insert_if_not_exists(COVERS_TABLE, COVER_COLUMN, item[:cover])
 
 			#Styles table.
 			styles = item[:style].split(", ")
@@ -486,9 +490,9 @@ class SQLite3Query
 			end
 
 			#Albums table.
-			#check_columns = [ALBUM_ARTIST_ID_COLUMN, ALBUM_TITLE_COLUMN]
-			#check_items = [album_artist_id, item[:album_title]]
-			insert_items = [album_title_id, year_id, publisher_id, codec_id, comment_id]#, cover_id]
+			check_columns = [TITLE_ID_COLUMN]
+			check_items = [album_title_id]
+			insert_items = [album_title_id, year_id, publisher_id, codec_id, comment_id, cover_id]
 			album_id = insert_if_not_exists(ALBUMS_TABLE, check_columns, check_items, insert_items)
 
 			#Tracks table.
@@ -502,7 +506,7 @@ class SQLite3Query
 			check_columns = [ALBUM_ID_COLUMN, ARTIST_ID_COLUMN]
 			album_artist_ids.each_with_index do |album_artist_id, i|
 				check_items = [album_id, album_artist_id]
-				insert_items = [album_id, album_artist_id, i]
+				insert_items = [album_id, album_artist_id, i.to_s]
 				insert_if_not_exists(ALBUMS_ARTISTS_TABLE, check_columns, check_items, insert_items)
 			end
 
@@ -510,7 +514,7 @@ class SQLite3Query
 			check_columns = [ALBUM_ID_COLUMN, STYLE_ID_COLUMN]
 			style_ids.each_with_index do |style_id, i|
 				check_items = [album_id, style_id]
-				insert_items = [album_id, style_id, i]
+				insert_items = [album_id, style_id, i.to_s]
 				insert_if_not_exists(ALBUMS_STYLES_TABLE, check_columns, check_items, insert_items)
 			end
 
@@ -518,7 +522,7 @@ class SQLite3Query
 			check_columns = [TRACK_ID_COLUMN, ARTIST_ID_COLUMN]
 			track_artist_ids.each_with_index do |track_artist_id, i|
 				check_items = [track_id, track_artist_id]
-				insert_items = [track_id, track_artist_id, i]
+				insert_items = [track_id, track_artist_id, i.to_s]
 				insert_if_not_exists(TRACKS_ARTISTS_TABLE, check_columns, check_items, insert_items)
 			end
 
@@ -526,7 +530,7 @@ class SQLite3Query
 			check_columns = [TRACK_ID_COLUMN, COMPOSER_ID_COLUMN]
 			composer_ids.each_with_index do |composer_id, i|
 				check_items = [track_id, composer_id]
-				insert_items = [track_id, composer_id, i]
+				insert_items = [track_id, composer_id, i.to_s]
 				insert_if_not_exists(TRACKS_COMPOSERS_TABLE, check_columns, check_items, insert_items)
 			end
 		end
