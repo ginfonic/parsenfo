@@ -41,11 +41,7 @@ output_file: file for storing parsed cd records info:
 	and stored into folder with input_file
 
 Please, select input file or folder!}
-<<<<<<< HEAD
-	#Accessors.
-=======
 	#Attributes.
->>>>>>> replaced spaces with tabs
 	#attr_reader :log_kind, :out_file_kind, :log_file, :in_files, :out_file, :log_lines, :out_items
 
 	#Public methods.
@@ -186,13 +182,14 @@ class Album
 	Disc = Struct.new(:disc_number, :disc_title, :tracks)
 	Track = Struct.new(:track_number, :track_artist, :track_title, :composer)
 
-<<<<<<< HEAD
-	#Accessors.
-=======
 	#Attributes.
+<<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> replaced spaces with tabs
 	#attr_reader :codec, :album_artist, :album_title, :year, :publisher, :genre, :style, :comment, :discs
+=======
+	#attr_reader :codec, :album_artist, :album_title, :year, :publisher, :genre, :style, :comment, :cover, :discs
+>>>>>>> continued updating SQLite3Query::insert_records. bugs corrected, added cover field. Albums table unique checking stayed unsolved
 =======
 	#attr_reader :codec, :album_artist, :album_title, :year, :publisher, :genre, :style, :comment, :cover, :discs
 >>>>>>> continued updating SQLite3Query::insert_records. bugs corrected, added cover field. Albums table unique checking stayed unsolved
@@ -329,11 +326,7 @@ class SQLite3Query
 	PUBLISHER_COLUMN = Column.new("publisher", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
 	CODEC_COLUMN = Column.new("codec", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
 	COMMENT_COLUMN = Column.new("comment", "TEXT NOT NULL UNIQUE COLLATE NOCASE")  
-<<<<<<< HEAD
-	COVER_COLUMN = Column.new("comment", "BLOB NOT NULL UNIQUE")
-=======
 	COVER_COLUMN = Column.new("cover", "BLOB NOT NULL UNIQUE")
->>>>>>> replaced spaces with tabs
 	ARTIST_COLUMN = Column.new("artist", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
 	STYLE_COLUMN = Column.new("style", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
 	COMPOSER_COLUMN = Column.new("composer", "TEXT NOT NULL UNIQUE COLLATE NOCASE")
