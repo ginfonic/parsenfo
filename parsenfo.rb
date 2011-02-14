@@ -241,10 +241,8 @@ class Album
 		#Creates structure info for storing parsed data.
 		info = Info.new(nil, nil, nil, nil, nil, nil, nil, nil, [], [], [], [], [])
 		lines.each do |line|
-			#Finds tag name in string.
-			tag_end = line.index("=")
-			#Rejects empty lines & lines with no tag name.
-			next if line.empty? || tag_end.nil?
+			#Finds tag name in line, rejects empty lines & lines with no tag name.
+			next if line.empty? || (tag_end = line.index("=")).nil? || tag_end > 5
 			#Detaches tag name.
 			tag = line.slice!(0, tag_end + 1)
 			#Fills values based on tag names.
