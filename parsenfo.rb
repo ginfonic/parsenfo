@@ -1,5 +1,3 @@
-#234567890123456789012345678901234567890123456789012345678901234567890123
-#         1         2         3         4         5         6         7 |
 #!/usr/bin/ruby -w
 #: Title				: parsenfo.rb (Parse NFO)
 #: Date					: 2010-06-26
@@ -9,6 +7,8 @@
 #: Description	: into CSV text file or to SQLite3 database.
 #: Arguments		: [-options] input_file|input_folder [output_file]
 #
+#234567890123456789012345678901234567890123456789012345678901234567890123
+#         1         2         3         4         5         6         7 |
 require "rubygems"
 require "sqlite3"
 
@@ -387,6 +387,7 @@ class RecordsDatabase < SQLite3Database
 		"INTEGER NOT NULL")
 
 	#Table definitions.
+	
 	#Parent tables.
 	TITLES_TABLE = Table.new("titles", nil, [TITLE_COLUMN])
 	YEARS_TABLE = Table.new("years", nil, [YEAR_COLUMN])
@@ -575,7 +576,7 @@ class RecordsDatabase < SQLite3Database
 			"#{check_column.header} = " +
 			"#{SQLite3Database.quote(check_items[i])} AND "}
 		sql = sql.slice(0, sql.length - 5)
-		result = self.execute(sql).first
+		result = self.get_first_value(sql)
 		#If false inserts row into table and returns id of new row.
 		if result.nil?
 			sql = "INSERT INTO #{table.header} VALUES ("
@@ -584,7 +585,6 @@ class RecordsDatabase < SQLite3Database
 			sql = "#{sql.slice(0, sql.length - 2)})"
 			self.transaction {|tdb| tdb.execute(sql)}
 			result = self.last_insert_row_id
-		else result = result.first
 		end
 		result.to_s
 	end
