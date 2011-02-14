@@ -121,10 +121,7 @@ Please, select input file or folder!}
 	#Puts array of track records to output file.
 	def put
 		if @out_file_kind == :sqlite3
-			db = SQLite3::Database.new(@out_file)
-			sqlite3_query = SQLite3Query.new(db, to_hashes(@out_items))
-			sqlite3_query.insert_records
-			db.close
+			RecordsDatabase.open(@out_file) {|db| db.insert_records(to_hashes(@out_items))}
 		else
 			lines = if @out_file_kind == :tab then to_tab_lines(@out_items)
 			else to_csv_lines(@out_items) end
@@ -297,14 +294,32 @@ class Album
 	end
 end
 
-#SQLite3Query class for creating and inserting records into SQLite3 database.
-class SQLite3Query
+#Redefines SQLite3::Database class.
+class SQLite3Database < SQLite3::Database
+	#Constants.
+	NULL = "NULL"
+
+	#Class methods.
+	class << self
+		#Opens database from file, calls block & closes database.
+		def open(file)
+			db = new(file)
+			yield db
+			db.close
+		end
+
+		#Safely quotes string to SQLite3. If nil returns NULL.
+		def quote(string)
+			string.nil? ? NULL : "'#{super(string)}'"
+		end
+	end
+end
+
+#Creates and operates SQLite3 database to store records.
+class RecordsDatabase < SQLite3Database
 	#Types.
 	Column = Struct.new(:header, :type_constraint)
 	Table = Struct.new(:header, :constraint, :columns)
-
-	#Constants.
-	NULL = "NULL"
 
 	#Column definitions.
 
@@ -381,55 +396,23 @@ class SQLite3Query
 		COVERS_TABLE, STYLES_TABLE, COMPOSERS_TABLE, ARTISTS_TABLE, ALBUMS_TABLE, TRACKS_TABLE,
 		ALBUMS_ARTISTS_TABLE, ALBUMS_STYLES_TABLE, TRACKS_ARTISTS_TABLE, TRACKS_COMPOSERS_TABLE]
 
-	#Attributes: link to database and array of hashes of track records.
-	attr_reader :db, :items
-
 	#Methods.
-	#Initializes attributes and create tables if they not exist.
-	def initialize(db, items)
-		@db, @items = db, items
+	#Initializes database & creates tables if they not exist.
+	def initialize(file)
+		#Initializes superclass -- creates database.
+		super(file)
+		#Creates tables if they not exist
 		TABLES.each do |table|
 			sql = "CREATE TABLE IF NOT EXISTS #{table.header} ("
 			table.columns.each {|column| sql += "#{column.header} #{column.type_constraint}, "}
 			sql = table.constraint.nil? ? "#{sql.slice(0, sql.length - 2)})" : "#{sql}#{table.constraint})"
-			@db.execute(sql)
+			self.execute(sql)
 		end
-	end
-
-	#Safely quotes string to SQLite3. If nil returns NULL.
-	def quote(string)
-		string.nil? ? NULL : "'#{SQLite3::Database.quote(string)}'"
-	end
-
-	#Inserts raw into table if not exists and returns id. If exists returns id of existing one.
-	#Could have 3 o4 4 arguments. The last 3 - arrays or single items.
-	def insert_if_not_exists(table, check_columns, check_items, insert_items = check_items)
-		#Converts arguments to arrays if they are not.
-		check_columns = [check_columns] if check_columns.class != Array
-		check_items = [check_items] if check_items.class != Array
-		insert_items = [insert_items] if insert_items.class != Array
-		#If no items to add returns nil (quoted to NULL).
-		return nil if insert_items.first.nil?
-		#Checks if row presents in table. If it's true returns id of row.
-		sql = "SELECT ROWID FROM #{table.header} WHERE "
-		check_columns.each_with_index {|check_column, i| sql += "#{check_column.header} = #{quote(check_items[i])} AND "}
-		sql = sql.slice(0, sql.length - 5)
-		result = @db.execute(sql).first
-		#If false inserts row into table and returns id of new row.
-		if result.nil?
-			sql = "INSERT INTO #{table.header} VALUES ("
-			insert_items.each {|insert_item| sql += "#{quote(insert_item)}, "}
-			sql = "#{sql.slice(0, sql.length - 2)})"
-			@db.execute(sql)
-			result = @db.last_insert_row_id
-		else result = result.first
-		end
-		result.to_s
 	end
 
 	#For every track records item inserts records into corresponding tables.
-	def insert_records
-		@items.each do |item|
+	def insert_records(items)
+		items.each do |item|
 			#Titles, years, publishers, codecs, comments & covers tables.
 			album_title_id = insert_if_not_exists(TITLES_TABLE, TITLE_COLUMN, item[:album_title])
 			track_title_id = insert_if_not_exists(TITLES_TABLE, TITLE_COLUMN, item[:track_title])
@@ -481,7 +464,7 @@ class SQLite3Query
 			#Tracks table.
 			check_columns = [TRACK_NUMBER_COLUMN, DISC_NUMBER_COLUMN, ALBUM_ID_COLUMN]
 			check_items = [item[:track_number], item[:disc_number], album_id]
-			insert_items = [item[:track_title], item[:track_number], item[:disc_number], album_id]
+			insert_items = [track_title_id, item[:track_number], item[:disc_number], album_id]
 			track_id = insert_if_not_exists(TRACKS_TABLE, check_columns, check_items, insert_items)
 			#puts "Album: #{album_id}\tDisc: #{disc_id}\tTrack: #{track_id}"
 
@@ -517,6 +500,34 @@ class SQLite3Query
 				insert_if_not_exists(TRACKS_COMPOSERS_TABLE, check_columns, check_items, insert_items)
 			end
 		end
+	end
+
+	private
+	#Inserts raw into table if not exists and returns id. If exists returns id of existing one.
+	#Could have 3 o4 4 arguments. The last 3 - arrays or single items.
+	def insert_if_not_exists(table, check_columns, check_items, insert_items = check_items)
+		#Converts arguments to arrays if they are not.
+		check_columns = [check_columns] if check_columns.class != Array
+		check_items = [check_items] if check_items.class != Array
+		insert_items = [insert_items] if insert_items.class != Array
+		#If no items to add returns nil (quoted to NULL).
+		return nil if insert_items.first.nil?
+		#Checks if row presents in table. If it's true returns id of row.
+		sql = "SELECT ROWID FROM #{table.header} WHERE "
+		check_columns.each_with_index {|check_column, i| sql +=
+			"#{check_column.header} = #{SQLite3Database.quote(check_items[i])} AND "}
+		sql = sql.slice(0, sql.length - 5)
+		result = self.execute(sql).first
+		#If false inserts row into table and returns id of new row.
+		if result.nil?
+			sql = "INSERT INTO #{table.header} VALUES ("
+			insert_items.each {|insert_item| sql += "#{SQLite3Database.quote(insert_item)}, "}
+			sql = "#{sql.slice(0, sql.length - 2)})"
+			self.execute(sql)
+			result = self.last_insert_row_id
+		else result = result.first
+		end
+		result.to_s
 	end
 end
 
