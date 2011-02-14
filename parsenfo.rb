@@ -441,7 +441,7 @@ class RecordsDatabase < SQLite3Database
 			sql = table.constraint.nil? ?
 				"#{sql.slice(0, sql.length - 2)})" :
 				"#{sql}#{table.constraint})"
-			self.execute(sql)
+			self.transaction {|tdb| tdb.execute(sql)}
 		end
 	end
 
@@ -582,7 +582,7 @@ class RecordsDatabase < SQLite3Database
 			insert_items.each {|insert_item| sql +=
 				"#{SQLite3Database.quote(insert_item)}, "}
 			sql = "#{sql.slice(0, sql.length - 2)})"
-			self.execute(sql)
+			self.transaction {|tdb| tdb.execute(sql)}
 			result = self.last_insert_row_id
 		else result = result.first
 		end
