@@ -1,17 +1,19 @@
+#234567890123456789012345678901234567890123456789012345678901234567890123
+#         1         2         3         4         5         6         7 |
 #!/usr/bin/ruby -w
 #: Title				: parsenfo.rb (Parse NFO)
 #: Date					: 2010-06-26
 #: Author				: "Eugene Fokin" <ginfonic@gmail.com>
 #: Version			: 3.2
 #: Description	: Parses text file with tagged CD records info
-#: Description	: into CSV or to SQLite3 database.
+#: Description	: into CSV text file or to SQLite3 database.
 #: Arguments		: [-options] input_file|input_folder [output_file]
 #
 require "rubygems"
 require "sqlite3"
 
 #InOut class for parsing arguments, getting strings from text file,
-#storing track records of all albums & putting them to CSV
+#storing track records of all albums & putting them to CSV text file
 #or to SQLite3 database.
 class InOut
 	#Constants.
@@ -22,16 +24,14 @@ class InOut
 parsenfo.rb # version: 3.2 # date: 2010-06-26
 created by: eugene fokin <ginfonic@gmail.com>
 description: parses text file with tagged cd records info
-	into csv or tab delimited text file or to sqlite3 database
+	into csv text file or to sqlite3 database
 
 usage: parsenfo.rb [-options] input_file|input_folder [output_file]
 
-options: -fvctl
-	f: creates log file parsenfo.log in script folder (default)
+options: -vctl
 	v: verbose mode, puts log to console
-		also by default log adds to file parcenfo.log in script folder
-	c: output file kind -- csv, extention -- .csv (default)
-	t: output file kind -- tab delimited text, extention -- .txt
+		also by default log adds to file parsenfo.log in script folder
+	c: output file kind -- csv text file, extention -- .csv (default)
 	l: output file kind -- sqlite3 database, extention -- .db
 input_file: nfo text file with tagged cd records info
 input_folder: folder with these files:
@@ -64,8 +64,6 @@ Please, select input file or folder!}
 					@log_kind = :verbose
 				when "c"
 					@out_file_kind, out_file_ext = :csv, ".csv"
-				when "t"
-					@out_file_kind, out_file_ext = :tab, ".txt"
 				when "l"
 					@out_file_kind, out_file_ext = :sqlite3, ".db"
 				end
@@ -133,9 +131,7 @@ Please, select input file or folder!}
 				db.insert_records(to_hashes(@out_items))
 			end
 		else
-			lines = if @out_file_kind == :tab then to_tab_lines(@out_items)
-			else to_csv_lines(@out_items) end
-			File.open(@out_file, "a") {|fp| fp.puts lines}
+			File.open(@out_file, "a") {|fp| fp.puts to_csv_lines(@out_items)}
 		end
 		#Puts log lines to log file.
 		File.open(@log_file, "a") {|fp| fp.puts @log_lines}
@@ -149,17 +145,6 @@ Please, select input file or folder!}
 		require "csv"
 		lines = []
 		items.each {|item| lines << CSV.generate_line(item)}
-		lines
-	end
-
-	#Converts array of track records to array of tab delimited records.
-	def to_tab_lines(items)
-		lines = []
-		items.each do |raw|
-			line = ""
-			raw.each {|record| line += "#{record}\t"}
-			lines << line.slice(0, line.length - 1)
-		end
 		lines
 	end
 
