@@ -112,8 +112,8 @@ Please, select input file or folder!}
 			File.foreach(in_file) {|line| lines << line.chomp}
 			album_items = yield lines
 			if !album_items.empty?
-				to_log(album_items) 
 				@out_items += album_items
+				@log_lines << to_log(album_items) 
 			end
 		end
 	end
@@ -134,8 +134,9 @@ Please, select input file or folder!}
 		File.open(@log_file, "a") {|fp| fp.puts @log_lines}
 	end
 
-	#Private metods.
+	#Private methods.
 	private
+	
 	#Converts array of track records to array of CSV records.
 	def to_csv_lines(items)
 		require "csv"
@@ -170,7 +171,7 @@ Please, select input file or folder!}
 	def to_log(items)
 		log_line = "#{@log_lines.length}: #{items[0][1]} - #{items[0][2]}"
 		puts log_line if @log_kind == :verbose
-		@log_lines << log_line
+		log_line
 	end
 end
 
