@@ -1,4 +1,6 @@
 #!/usr/bin/ruby -w
+#234567890123456789012345678901234567890123456789012345678901234567890123
+#         1         2         3         4         5         6         7 |
 #: Title				: parsenfo.rb (Parse NFO)
 #: Date					: 2010-06-26
 #: Author				: "Eugene Fokin" <ginfonic@gmail.com>
@@ -6,11 +8,8 @@
 #: Description	: Parses text file with tagged CD records info
 #: Description	: into CSV text file or to SQLite3 database.
 #: Arguments		: [-options] input_file|input_folder [output_file]
-#
-#234567890123456789012345678901234567890123456789012345678901234567890123
-#         1         2         3         4         5         6         7 |
+
 require "rubygems"
-require "sqlite3"
 
 #InOut class for parsing arguments, getting strings from text file,
 #storing track records of all albums & putting them to CSV text file
@@ -47,6 +46,7 @@ Please, select input file or folder!}
 	#:out_file, :log_lines, :out_items
 
 	#Public methods.
+	
 	#Initializes with kind of log & output file, input & output files.
 	def initialize(options, in_file, out_file)
 		#Defaults values of kind of log, kind & extention of output file.
@@ -124,14 +124,14 @@ Please, select input file or folder!}
 		end
 	end
 
-	#Puts array of track records to output file.
+	#Puts hash of track records to output file.
 	def put
 		if @out_file_kind == :sqlite3
 			RecordsDatabase.open(@out_file) do |db|
-				db.insert_records(to_hashes(@out_items))
+				db.insert_records(@out_items)
 			end
 		else
-			File.open(@out_file, "a") {|fp| fp.puts to_csv_lines(@out_items)}
+			File.open(@out_file, "a") {|fp| fp.puts to_csv(@out_items)}
 		end
 		#Puts log lines to log file.
 		File.open(@log_file, "a") {|fp| fp.puts @log_lines}
@@ -141,27 +141,16 @@ Please, select input file or folder!}
 	private
 	
 	#Converts array of track records to array of CSV records.
-	def to_csv_lines(items)
+	def to_csv(items)
 		require "csv"
 		lines = []
-		items.each {|item| lines << CSV.generate_line(item)}
-		lines
-	end
-
-	#Converts array of track records to array of hashes of track records.
-	def to_hashes(items)
-		hashes = []
 		items.each do |item|
-			hashes << {:codec => item[0], :album_artist => item[1],
-				:album_title => item[2], :year => item[3],
-				:publisher => item[4], :genre => item[5],
-				:style => item[6], :comment => item[7],
-				:cover => item[8], :disc_number => item[9],
-				:disc_title => item[10], :track_number => item[11],
-				:track_artist => item[12], :track_title => item[13],
-				:composer => item[14]}
+			lines << CSV.generate_line(item.values_at(:codec,
+				:album_artist, :album_title, :year, :publisher, :genre,
+				:style, :comment, :cover, :disc_number, :disc_title,
+				:track_number,:track_artist, :track_title, :composer))
 		end
-		hashes
+		lines
 	end
 
 	def to_log(items)
@@ -171,7 +160,7 @@ Please, select input file or folder!}
 	end
 end
 
-#Album class with tree of arrays (Disc, Track) for storing records.
+#Album class with tree of arrays (discs, tracks) for storing records.
 class Album
 	#Types.
 	Info = Struct.new(:codec, :album_artist, :album_title, :year,
@@ -185,7 +174,8 @@ class Album
 	#attr_reader :codec, :album_artist, :album_title, :year,
 	#:publisher, :genre, :style, :comment, :cover, :discs
 
-	#Methods.
+	#Public methods.
+	
 	#Fills tree of arrays with data from input array.
 	def initialize(lines)
 		#Parses data from input array and returns them in Info structure.
@@ -224,15 +214,21 @@ class Album
 		default
 	end
 
-	#Converts tree of arrays to array of track records.
+	#Converts tree of arrays to hash of track records.
 	def to_items
 		items = []
 		@discs.each do |disc|
 			disc.tracks.each do |track|
-				items << [@codec, @album_artist, @album_title, @year,
-					@publisher, @genre, @style, @comment, @cover,
-					disc.disc_number, disc.disc_title, track.track_number,
-					track.track_artist, track.track_title, track.composer]
+				items << {:codec => @codec, :album_artist => @album_artist,
+					:album_title => @album_title, :year => @year,
+					:publisher => @publisher, :genre => @genre,
+					:style => @style, :comment => @comment, :cover => @cover,
+					:disc_number => disc.disc_number,
+					:disc_title => disc.disc_title,
+					:track_number => track.track_number,
+					:track_artist => track.track_artist,
+					:track_title => track.track_title,
+					:composer => track.composer}
 			end
 		end
 		items
@@ -306,11 +302,10 @@ class Album
 	end
 end
 
-#Redefines SQLite3::Database class.
-class SQLite3Database < SQLite3::Database
-	#Constants.
-	NULL = "NULL"
+require "sqlite3"
 
+#Modifies two SQLite3::Database class methods.
+class SQLite3Database < SQLite3::Database
 	#Class methods.
 	class << self
 		#Opens database from file, calls block & closes database.
@@ -322,7 +317,7 @@ class SQLite3Database < SQLite3::Database
 
 		#Safely quotes string to SQLite3. If nil returns NULL.
 		def quote(string)
-			string.nil? ? NULL : "'#{super(string)}'"
+			string.nil? ? "NULL" : "'#{super(string)}'"
 		end
 	end
 end
@@ -336,7 +331,7 @@ class RecordsDatabase < SQLite3Database
 	#Column definitions.
 
 	#TITLES_TABLE, YEARS_TABLE, PUBLISHERS_TABLE, CODECS_TABLE,
-	#COMMENTS_TABLE, #COVERS_TABLE, ARTISTS_TABLE, STYLES_TABLE,
+	#COMMENTS_TABLE, COVERS_TABLE, ARTISTS_TABLE, STYLES_TABLE,
 	#COMPOSERS_TABLE.
 	TITLE_COLUMN = Column.new("title",
 		"TEXT NOT NULL UNIQUE COLLATE NOCASE")
@@ -429,7 +424,8 @@ class RecordsDatabase < SQLite3Database
 		ARTISTS_TABLE, ALBUMS_TABLE, TRACKS_TABLE, ALBUMS_ARTISTS_TABLE,
 		ALBUMS_STYLES_TABLE, TRACKS_ARTISTS_TABLE, TRACKS_COMPOSERS_TABLE]
 
-	#Methods.
+	#Public methods.
+	
 	#Initializes database & creates tables if they not exist.
 	def initialize(file)
 		#Initializes superclass -- creates database.
@@ -558,7 +554,9 @@ class RecordsDatabase < SQLite3Database
 		end
 	end
 
+	#Private methods.
 	private
+	
 	#Inserts raw into table if not exists and returns id.
 	#If exists returns id of existing one. Could have 3 o4 4 arguments.
 	#The last 3 - arrays or single items.
@@ -590,7 +588,7 @@ class RecordsDatabase < SQLite3Database
 	end
 end
 
-#Creates object In_out & initializes it with command line arguments.
+#Creates object in_out & initializes it with command line arguments.
 in_out = InOut.new(ARGV[0], ARGV[1], ARGV[2])
 #Main cycle. For each input file gets lines from file,
 #parses them, stores in tree of arrays, defaults empty records,
