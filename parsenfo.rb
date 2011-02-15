@@ -153,8 +153,10 @@ Please, select input file or folder!}
 		lines
 	end
 
+	#Creates log entry for every processed album.
 	def to_log(items)
-		log_line = "#{@log_lines.length}: #{items[0][1]} - #{items[0][2]}"
+		log_line = "#{@log_lines.length}: #{items[0][:album_artist]} - " +
+			"#{items[0][:album_title]}"
 		puts log_line if @log_kind == :verbose
 		log_line
 	end
