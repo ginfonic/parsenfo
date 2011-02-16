@@ -319,7 +319,7 @@ class SQLite3Database < SQLite3::Database
 
 		#Safely quotes string to SQLite3. If nil returns NULL.
 		def quote(string)
-			string.nil? ? "NULL" : "'#{super(string)}'"
+			string.nil? ? "NULL" : "'#{super}'"
 		end
 	end
 end
@@ -431,7 +431,7 @@ class RecordsDatabase < SQLite3Database
 	#Initializes database & creates tables if they not exist.
 	def initialize(file)
 		#Initializes superclass -- creates database.
-		super(file)
+		super
 		#Creates tables if they not exist
 		TABLES.each do |table|
 			sql = "CREATE TABLE IF NOT EXISTS #{table.header} ("
