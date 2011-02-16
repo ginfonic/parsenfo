@@ -1,6 +1,6 @@
 #!/usr/bin/ruby -w
 #234567890123456789012345678901234567890123456789012345678901234567890123
-#         1         2         3         4         5         6         7 |
+#        1         2         3         4         5         6         7  |
 #: Title				: parsenfo.rb (Parse NFO)
 #: Date					: 2010-06-26
 #: Author				: "Eugene Fokin" <ginfonic@gmail.com>
@@ -27,11 +27,11 @@ description: parses text file with tagged cd records info
 
 usage: parsenfo.rb [-options] input_file|input_folder [output_file]
 
-options: -vctl
+options: -vcs
 	v: verbose mode, puts log to console
 		also by default log adds to file parsenfo.log in script folder
 	c: output file kind -- csv text file, extention -- .csv (default)
-	l: output file kind -- sqlite3 database, extention -- .db
+	s: output file kind -- sqlite3 database, extention -- .db
 input_file: nfo text file with tagged cd records info
 input_folder: folder with these files:
 	.txt extention, no recursing
@@ -49,27 +49,26 @@ Please, select input file or folder!}
 	
 	#Initializes with kind of log & output file, input & output files.
 	def initialize(options, in_file, out_file)
-		#Defaults values of kind of log, kind & extention of output file.
-		@log_kind, @out_file_kind, out_file_ext = :file, :csv, ".csv"
-		#Defines array of track records of all albums.
+		#Defaults verbose mode, kind & extention of output file.
+		@verbose, @out_file_kind, out_file_ext = false, :csv, ".csv"
+		#Array of track records of all albums.
 		@out_items = []
 
-		#Defines kind of log (text file or verbose) &
-		#output file (CSV or SQLite3).
+		#Defines verbose mode & output file (CSV or SQLite3).
 		options_a = options.to_s.split(//)
 		if options_a.shift == "-"
 			options_a.each do |option|
 				case option
 				when "v"
-					@log_kind = :verbose
+					@verbose = true
 				when "c"
 					@out_file_kind, out_file_ext = :csv, ".csv"
-				when "l"
+				when "s"
 					@out_file_kind, out_file_ext = :sqlite3, ".db"
 				end
 			end
 		else
-			out_file, in_file = in_file, options
+			in_file, out_file = options, in_file
 		end
 
 		#Defines input files.
@@ -157,7 +156,7 @@ Please, select input file or folder!}
 	def to_log(items)
 		log_line = "#{@log_lines.length}: #{items[0][:album_artist]} - " +
 			"#{items[0][:album_title]}"
-		puts log_line if @log_kind == :verbose
+		puts log_line if @verbose == true
 		log_line
 	end
 end
@@ -205,8 +204,7 @@ class Album
 				track = Track.new((k + 1).to_s, info.track_artists[j],
 					info.track_titles[j], info.composers[j])
 				disc.tracks << track
-				j += 1
-				k += 1
+				j += 1; k += 1
 			end
 			#Adds new disc.
 			@discs << disc
@@ -310,6 +308,7 @@ require "sqlite3"
 class SQLite3Database < SQLite3::Database
 	#Class methods.
 	class << self
+		
 		#Opens database from file, calls block & closes database.
 		def open(file)
 			db = new(file)
@@ -329,6 +328,8 @@ class RecordsDatabase < SQLite3Database
 	#Types.
 	Column = Struct.new(:header, :type_constraint)
 	Table = Struct.new(:header, :constraint, :columns)
+
+	#Constants.
 
 	#Column definitions.
 

@@ -3,11 +3,10 @@ description: parses text file with tagged cd records info into csv text file or 
 
 usage: parsenfo.rb [-options] input_file|input_folder [output_file]
 
-options: -vctl
+options: -vcs
   v: verbose mode, puts log to console. also by default log adds to file parsenfo.log in script folder
   c: output file kind -- csv text file, extention -- .csv (default)
-  t: output file kind -- tab delimited text, extention -- .txt
-  l: output file kind -- sqlite3 database, extention -- .db
+  s: output file kind -- sqlite3 database, extention -- .db
 
 input_file: nfo text file with tagged cd records info
 input_folder: folder with these files: .txt extention, no recursing
