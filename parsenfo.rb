@@ -2,9 +2,9 @@
 #234567890123456789012345678901234567890123456789012345678901234567890123
 #        1         2         3         4         5         6         7  |
 #: Title				: parsenfo.rb (Parse NFO)
-#: Date					: 2010-06-26
+#: Date					: 2011-02-16
 #: Author				: "Eugene Fokin" <ginfonic@gmail.com>
-#: Version			: 3.2
+#: Version			: 3.3
 #: Description	: Parses text file with tagged CD records info
 #: Description	: into CSV text file or to SQLite3 database.
 #: Arguments		: [-options] input_file|input_folder [output_file]
@@ -20,7 +20,7 @@ class InOut
 	OUT_LOG_FILE_NAME = "parsenfo"
 	LOG_FILE_EXT = ".log"
 	INFO = %q{
-parsenfo.rb # version: 3.2 # date: 2010-06-26
+parsenfo.rb # version: 3.3 # date: 2011-02-16
 created by: eugene fokin <ginfonic@gmail.com>
 description: parses text file with tagged cd records info
 	into csv text file or to sqlite3 database
